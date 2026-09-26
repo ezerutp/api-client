@@ -91,6 +91,7 @@ class ResponseViewer(QWidget):
     cancel_requested = Signal()
     retry_requested = Signal()
     notify = Signal(str)
+    save_variable_requested = Signal(object, object)  # JSON path, value
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -183,6 +184,8 @@ class ResponseViewer(QWidget):
         self._body_stack.addWidget(self._centered(self._body_message))
 
         self.object_view = JsonTreeView()
+        self.object_view.can_save_variables = True
+        self.object_view.save_variable_requested.connect(self.save_variable_requested)
 
         self.headers_view = QTextBrowser()
         self.headers_view.setOpenLinks(False)

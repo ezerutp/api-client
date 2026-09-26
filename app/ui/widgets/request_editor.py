@@ -48,6 +48,7 @@ class RequestEditor(QWidget):
     notify = Signal(str)
     splitter_moved = Signal(list)
     object_view_toggled = Signal(bool)
+    save_variable_requested = Signal(object, object)  # JSON path, value (from the response)
 
     def __init__(
         self,
@@ -69,6 +70,7 @@ class RequestEditor(QWidget):
         self.response.cancel_requested.connect(self.cancel)
         self.response.retry_requested.connect(self.send)
         self.response.notify.connect(self.notify)
+        self.response.save_variable_requested.connect(self.save_variable_requested)
 
         top = QWidget()
         top.setObjectName("RequestPanel")

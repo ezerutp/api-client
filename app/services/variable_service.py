@@ -7,6 +7,7 @@ nothing is ever evaluated. Variables may reference other variables
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -135,3 +136,34 @@ def build_variable_context(project: Project, secrets: Secrets, environment: str 
     values.update(env_secrets)
     secret_names = frozenset(secrets.globals) | frozenset(env_secrets)
     return VariableContext(values=values, secret_names=secret_names, environment=environment)
+
+
+# -- saving values as variables -------------------------------------------------------
+
+_NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_.\-]*")
+_SECRET_HINT = re.compile(r"token|secret|passw|pwd|api[_\-.]?key|auth|session|cookie|credential", re.IGNORECASE)
+
+
+def is_valid_variable_name(name: str) -> bool:
+    return bool(_NAME_PATTERN.fullmatch(name))
+
+
+def suggest_variable_name(path: Iterable[str | int]) -> str:
+    """``("data", "access_token")`` -> ``access_token``; array indexes are skipped."""
+    for key in reversed(list(path)):
+        if isinstance(key, str):
+            name = re.sub(r"[^A-Za-z0-9_.\-]+", "_", key).strip("_.-")
+            if name:
+                return name if is_valid_variable_name(name) else f"_{name}"
+    return "value"
+
+
+def looks_secret(name: str) -> bool:
+    return bool(_SECRET_HINT.search(name))
+
+
+def variable_text(value: object) -> str:
+    """How a JSON value is stored in a variable: strings as-is, everything else as JSON."""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
