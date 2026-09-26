@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QComboBox, QLabel, QSplitter, QStackedWidget, QVBo
 
 from app.i18n import tr
 from app.models.api_request import BodyType, RequestBody
+from app.services.json_navigation_service import EAGER_INDEX_CHARS, JsonNavigationService, Path
 from app.services.json_service import format_json, validate_json
 from app.themes.manager import current_theme
 from app.ui import icons
@@ -18,6 +19,8 @@ from app.ui.widgets.toggle_switch import ToggleSwitch
 
 #: Delay after the last keystroke before the object view is rebuilt.
 OBJECT_VIEW_DELAY_MS = 400
+#: Delay after the editor cursor stops moving before the object view follows it.
+TREE_FOLLOW_DELAY_MS = 150
 
 
 class BodyEditor(QWidget):
@@ -64,6 +67,15 @@ class BodyEditor(QWidget):
         self.editor_split.setSizes([750, 250])  # ~3/4 editor, 1/4 object view
         self.object_view.setMinimumWidth(180)
         self.object_view.hide()
+
+        # Object view <-> editor navigation. The path -> position index is rebuilt only when
+        # the text differs from the indexed one, never per click.
+        self.navigation = JsonNavigationService()
+        self._syncing = False  # guards the tree -> editor -> tree echo
+        self._follow_cursor_later = Debouncer(TREE_FOLLOW_DELAY_MS, self._sync_tree_to_cursor, self)
+        self.object_view.path_selected.connect(self.reveal_path)
+        self.object_view.path_activated.connect(lambda path: self.reveal_path(path, focus_editor=True))
+        self.editor.cursorPositionChanged.connect(self._on_cursor_moved)
 
         empty = QWidget()
         empty.setLayout(vbox(None, label(tr("This request has no body"), "EmptyTitle"),
@@ -211,4 +223,64 @@ class BodyEditor(QWidget):
         if not self._object_view_shown() or not self._object_view_stale:
             return
         self._object_view_stale = False
-        self.object_view.set_text(self.editor.toPlainText())
+        text = self.editor.toPlainText()
+        self.object_view.set_text(text)
+        if len(text) <= EAGER_INDEX_CHARS:
+            self._index_navigation()
+        if self.editor.hasFocus():
+            self._sync_tree_to_cursor()
+
+    # -- object view <-> editor navigation ------------------------------------------
+
+    def reveal_path(self, path: Path, *, focus_editor: bool = False) -> bool:
+        """Move the editor to the node at ``path`` (structural lookup, not a text search)."""
+        if self._syncing or not self._index_navigation():
+            return False
+        location = self.navigation.locate(path)
+        index = self.navigation.index
+        if location is None or index is None:
+            return False
+        if location.key_end is not None:
+            end = location.key_end  # members: highlight the key, the line shows the rest
+        elif "\n" not in index.text[location.value_start:location.end]:
+            end = location.end      # one-line array element / root value
+        else:
+            end = location.value_start + 1  # multi-line element: just its opening bracket
+        self._follow_cursor_later.cancel()
+        self._syncing = True
+        try:
+            self.editor.navigate_to(index.to_document_position(location.start), index.to_document_position(end))
+        finally:
+            self._syncing = False
+        if focus_editor:
+            self.editor.setFocus()
+        return True
+
+    def _navigable_text(self) -> str:
+        return self.editor.toPlainText() if self.body_type() is BodyType.JSON else ""
+
+    def _index_navigation(self) -> bool:
+        # (textChanged also fires on highlighter reformatting, so compare the text itself.)
+        return self.navigation.update(self._navigable_text())
+
+    def _on_cursor_moved(self) -> None:
+        if not self._syncing and self._object_view_shown() and self.editor.hasFocus():
+            self._follow_cursor_later.trigger()
+
+    def _sync_tree_to_cursor(self) -> None:
+        # Only with an up-to-date index: while typing, the debounced refresh re-syncs afterwards.
+        index = self.navigation.index
+        if not self._object_view_shown() or index is None or index.text != self._navigable_text():
+            return
+        cursor = self.editor.textCursor()
+        block = cursor.block()
+        path = index.path_at(index.from_document_position(cursor.position()),
+                             index.from_document_position(block.position()),
+                             index.from_document_position(block.position() + block.length() - 1))
+        if path is None:
+            return
+        self._syncing = True
+        try:
+            self.object_view.select_path(path)
+        finally:
+            self._syncing = False

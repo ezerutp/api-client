@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QPainter, QTextCursor, QTextFormat
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
@@ -10,6 +10,8 @@ from app.themes.manager import current_theme
 from app.ui.helpers import monospace_font, set_prop
 
 INDENT = "  "
+#: How long the "you are here" line stays highlighted after navigating from the object view.
+NAV_HIGHLIGHT_MS = 2500
 _PAIRS = {"{": "}", "[": "]"}
 
 
@@ -45,6 +47,12 @@ class CodeEditor(QPlainTextEdit):
         )
         self.setFrameShape(QPlainTextEdit.Shape.NoFrame)
         self._error_line: int | None = None
+        self._nav_range: tuple[int, int] | None = None  # document positions of the navigated node's key/value
+        self._nav_timer = QTimer(self)
+        self._nav_timer.setSingleShot(True)
+        self._nav_timer.setInterval(NAV_HIGHLIGHT_MS)
+        self._nav_timer.timeout.connect(self.clear_navigation_highlight)
+        self.textChanged.connect(self.clear_navigation_highlight)
         self._line_area = _LineNumberArea(self)
         self.blockCountChanged.connect(self._update_margins)
         self.updateRequest.connect(self._update_line_area)
@@ -67,6 +75,41 @@ class CodeEditor(QPlainTextEdit):
         self._error_line = line
         set_prop(self, "error", line is not None)
         self._refresh_selections()
+
+    def navigate_to(self, start: int, end: int) -> None:
+        """Put the cursor on ``start``, scroll it into view and highlight its line for a moment.
+
+        Does not take the focus, so the object view keeps arrow-key navigation.
+        """
+        cursor = self.textCursor()
+        cursor.setPosition(max(0, min(start, self.document().characterCount() - 1)))
+        self.setTextCursor(cursor)
+        self._reveal_cursor()
+        self._nav_range = (start, max(start, end))
+        self._nav_timer.start()
+        self._refresh_selections()
+
+    def clear_navigation_highlight(self) -> None:
+        if self._nav_range is not None:
+            self._nav_range = None
+            self._nav_timer.stop()
+            self._refresh_selections()
+
+    def navigation_line(self) -> int | None:
+        """1-based line currently highlighted by ``navigate_to`` (None when there is none)."""
+        if self._nav_range is None:
+            return None
+        return self.document().findBlock(self._nav_range[0]).blockNumber() + 1
+
+    def _reveal_cursor(self) -> None:
+        # Centre the target when it is off screen (or hugging an edge); leave the view alone
+        # when it is already comfortably visible, so walking the tree does not make it jump.
+        rect = self.cursorRect()
+        margin = rect.height() * 2
+        viewport = self.viewport().rect()
+        if rect.top() < viewport.top() + margin or rect.bottom() > viewport.bottom() - margin:
+            self.centerCursor()
+        self.ensureCursorVisible()
 
     def line_number_width(self) -> int:
         digits = max(2, len(str(max(1, self.blockCount()))))
@@ -119,6 +162,22 @@ class CodeEditor(QPlainTextEdit):
     def _refresh_selections(self) -> None:
         theme = current_theme()
         selections: list[QTextEdit.ExtraSelection] = []
+        if self._nav_range is not None:
+            line = QTextEdit.ExtraSelection()
+            color = QColor(theme.accent)
+            color.setAlpha(38 if theme.is_dark else 28)
+            line.format.setBackground(color)
+            line.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+            line.cursor = QTextCursor(self.document().findBlock(self._nav_range[0]))
+            selections.append(line)
+            key = QTextEdit.ExtraSelection()
+            color = QColor(theme.accent)
+            color.setAlpha(70 if theme.is_dark else 55)
+            key.format.setBackground(color)
+            key.cursor = QTextCursor(self.document())
+            key.cursor.setPosition(self._nav_range[0])
+            key.cursor.setPosition(self._nav_range[1], QTextCursor.MoveMode.KeepAnchor)
+            selections.append(key)
         if self._error_line is not None:
             block = self.document().findBlockByNumber(self._error_line - 1)
             if block.isValid():
