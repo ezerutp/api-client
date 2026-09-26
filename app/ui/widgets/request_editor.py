@@ -46,6 +46,7 @@ class RequestEditor(QWidget):
     copy_curl_requested = Signal(str)
     notify = Signal(str)
     splitter_moved = Signal(list)
+    object_view_toggled = Signal(bool)
 
     def __init__(
         self,
@@ -173,6 +174,7 @@ class RequestEditor(QWidget):
         self.headers_editor.changed.connect(self._on_headers_changed)
         self.auth_editor.changed.connect(self._on_auth_changed)
         self.body_editor.changed.connect(self._on_body_changed)
+        self.body_editor.object_view_toggled.connect(self.object_view_toggled)
 
     # -- loading & saving -----------------------------------------------------------
 
@@ -294,6 +296,9 @@ class RequestEditor(QWidget):
     def set_font_size(self, size: int) -> None:
         self.body_editor.set_font_size(size)
         self.response.set_font_size(size)
+
+    def set_object_view_enabled(self, enabled: bool) -> None:
+        self.body_editor.set_object_view_enabled(enabled)
 
     def refresh_theme(self) -> None:
         theme = current_theme()
