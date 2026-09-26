@@ -54,6 +54,7 @@ class LogoBadge(QLabel):
 class TopBar(QWidget):
     environment_selected = Signal(str)
     manage_environments = Signal()
+    open_variables = Signal()
     open_history = Signal()
     open_settings = Signal()
     open_palette = Signal()
@@ -99,6 +100,9 @@ class TopBar(QWidget):
         self._env_menu = QMenu(self.env_button)
         self.env_button.setMenu(self._env_menu)
 
+        self.variables_button = icon_button("braces", tr("Environment variables (Ctrl+Shift+E)"),
+                                            on_click=self.open_variables.emit)
+
         self._env_separator = QFrame()
         self._env_separator.setObjectName("TopBarSeparator")
         self._env_separator.setFixedSize(1, 20)
@@ -114,7 +118,7 @@ class TopBar(QWidget):
 
         self.setLayout(hbox(
             self.logo, 2, title, 8, self._separator, 4, self.project_button, None,
-            self.env_button, 6, self._env_separator, 6, self.palette_button, self.history_button,
+            self.env_button, 2, self.variables_button, 6, self._env_separator, 6, self.palette_button, self.history_button,
             self.settings_button, spacing=6, margins=(14, 0, 12, 0),
         ))
         self.set_project(None)
@@ -123,8 +127,8 @@ class TopBar(QWidget):
 
     def set_project(self, name: str | None) -> None:
         has_project = name is not None
-        for widget in (self._separator, self.project_button, self.env_button, self._env_separator,
-                       self.history_button, self.palette_button):
+        for widget in (self._separator, self.project_button, self.env_button, self.variables_button,
+                       self._env_separator, self.history_button, self.palette_button):
             widget.setVisible(has_project)
         self.project_button.setText(name or "")
 
@@ -155,7 +159,7 @@ class TopBar(QWidget):
         theme = current_theme()
         self.logo.refresh_theme()
         self.project_button.setIcon(icons.icon("chevron-down", theme.text_muted, 14))
-        for widget in (self.history_button, self.palette_button, self.settings_button):
+        for widget in (self.variables_button, self.history_button, self.palette_button, self.settings_button):
             apply_icon(widget)
         if self._current_env:
             self.env_button.setIcon(dot_icon(environment_color(self._current_env)))

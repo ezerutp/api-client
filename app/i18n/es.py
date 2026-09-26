@@ -29,7 +29,6 @@ MESSAGES: dict[str, str] = {
     "Key": "Clave",
     "Value": "Valor",
     "Header": "Encabezado",
-    "Variable": "Variable",
     "Location": "Ubicación",
     "Method": "Método",
     "URL": "URL",
@@ -310,11 +309,29 @@ MESSAGES: dict[str, str] = {
     "Mirrors @RequestMapping on the controller. New requests start with {{base_url}} + this path.":
         "Corresponde al @RequestMapping del controlador. Las peticiones nuevas empiezan con {{base_url}} + esta ruta.",
 
-    # -- Environments dialog -------------------------------------------------------
-    "Environments": "Entornos",
-    "ENVIRONMENTS": "ENTORNOS",
+    # -- Environment variables window --------------------------------------------
+    "Environment variables": "Variables de entorno",
+    "Environment variables (Ctrl+Shift+E)": "Variables de entorno (Ctrl+Shift+E)",
+    "Search variables…": "Buscar variables…",
+    "Secret": "Secreta",
+    "Actions": "Acciones",
     "Globals": "Globales",
-    "Add environment": "Añadir entorno",
+    "Edit value": "Editar valor",
+    "Copy {var}": "Copiar {var}",
+    "Copied {text}": "Copiado {text}",
+    "Enter a variable name.": "Escribe un nombre de variable.",
+    "Use letters, numbers, _ . or - (not starting with a number).":
+        "Usa letras, números, _ . o - (sin empezar por un número).",
+    "{var} already exists in {scope}.": "{var} ya existe en {scope}.",
+    "Delete variable?": "¿Eliminar la variable?",
+    "{var} will be removed from {scope}.": "{var} se eliminará de {scope}.",
+    "No variables match “{text}”.": "Ninguna variable coincide con “{text}”.",
+    "New variable": "Nueva variable",
+    "No variables yet. Use “New variable” to add one.": "Aún no hay variables. Usa “Nueva variable” para añadir una.",
+    "New environment…": "Nuevo entorno…",
+    "Rename environment…": "Renombrar entorno…",
+    "Duplicate environment…": "Duplicar entorno…",
+    "Delete environment…": "Eliminar entorno…",
     "Rename environment": "Renombrar entorno",
     "Duplicate environment": "Duplicar entorno",
     "New environment": "Nuevo entorno",
@@ -322,11 +339,11 @@ MESSAGES: dict[str, str] = {
     "Delete environment?": "¿Eliminar el entorno?",
     "Shared by every environment.": "Compartidas por todos los entornos.",
     "Active when “{env}” is selected in the top bar.": "Activas cuando “{env}” está seleccionado en la barra superior.",
-    "“{env}” and its variables (including secrets) will be removed when you save.":
-        "“{env}” y sus variables (incluidos los secretos) se eliminarán al guardar.",
-    "Lock a variable to store it in api-client/.secrets.json, which is git-ignored and never shared. "
+    "“{env}” and its variables (including secrets) will be deleted.":
+        "Se eliminarán “{env}” y sus variables (incluidos los secretos).",
+    "Secret values are stored in api-client/.secrets.json, which is git-ignored and never shared. "
     "Environment values override globals.":
-        "Bloquea una variable para guardarla en api-client/.secrets.json, que Git ignora y nunca se comparte. "
+        "Los valores secretos se guardan en api-client/.secrets.json, que Git ignora y nunca se comparte. "
         "Los valores del entorno tienen prioridad sobre los globales.",
 
     # -- Settings dialog -----------------------------------------------------------
@@ -405,7 +422,6 @@ MESSAGES: dict[str, str] = {
     "Project saved": "Proyecto guardado",
     "Could not reload project": "No se pudo recargar el proyecto",
     "Project reloaded": "Proyecto recargado",
-    "Environments saved": "Entornos guardados",
     "That request no longer exists": "Esa petición ya no existe",
     "JSON formatted": "JSON formateado",
     "Editing…": "Editando…",

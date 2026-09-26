@@ -40,12 +40,12 @@ from app.storage.database import Database
 from app.themes.manager import ThemeManager
 from app.ui.dialogs.base import BaseDialog, ChoiceDialog, ConfirmDialog, MessageDialog, TextInputDialog
 from app.ui.dialogs.command_palette import CommandPalette, PaletteEntry
-from app.ui.dialogs.environments_dialog import EnvironmentsDialog
 from app.ui.dialogs.history_dialog import HistoryDialog
 from app.ui.dialogs.project_dialogs import CreateProjectDialog, ProjectSettingsDialog
 from app.ui.dialogs.request_dialogs import CollectionDialog, CurlImportDialog, NewRequestDialog
 from app.ui.dialogs.settings_dialog import SettingsDialog
 from app.ui.dialogs.variable_dialogs import SaveVariableDialog
+from app.ui.dialogs.variables_window import EnvironmentsResult, VariablesWindow
 from app.ui.helpers import Debouncer, button, label
 from app.ui.widgets.empty_state import EditorEmptyState
 from app.ui.widgets.home_screen import HomeScreen
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self.http = HttpClientService(lambda: self.ctx.settings.network)
         self.service: ProjectService | None = None
         self.environment: str | None = None
+        self._variables_window: VariablesWindow | None = None
         self._dirty: set[str] = set()
         self._editor_split: list[int] = self.ctx.settings_repo.get(_SPLIT_KEY, []) or []
 
@@ -151,6 +152,7 @@ class MainWindow(QMainWindow):
         tb.reload_project.connect(self.reload_project)
         tb.environment_selected.connect(self.set_environment)
         tb.manage_environments.connect(lambda: self.manage_environments())
+        tb.open_variables.connect(lambda: self.manage_environments())
         tb.open_history.connect(self.show_history)
         tb.open_settings.connect(self.show_settings)
         tb.open_palette.connect(self.show_command_palette)
@@ -205,6 +207,7 @@ class MainWindow(QMainWindow):
         add(["Ctrl+,"], self.show_settings, needs_project=False)
         add(["Ctrl+H"], self.show_history)
         add(["Ctrl+E"], self.switch_environment_palette)
+        add(["Ctrl+Shift+E"], lambda: self.manage_environments())
         add(["Ctrl+P"], self.sidebar.focus_search)
         add(["Ctrl+D"], self.duplicate_current)
         add(["Ctrl+Tab", "Ctrl+PgDown"], lambda: self.tabs.select_relative(1))
@@ -305,6 +308,8 @@ class MainWindow(QMainWindow):
             self.tabs.remove(editor.request.id)
         self.service = None
         self.environment = None
+        if self._variables_window is not None:
+            self._variables_window.hide()
 
     def close_project(self) -> None:
         self._close_current_project()
@@ -330,6 +335,7 @@ class MainWindow(QMainWindow):
             self.ctx.recent.touch(self.service.key, self.service.project.name)
             self._refresh_recent()
             self._broadcast_context()
+            self._sync_variables_window()
             self.setWindowTitle(f"{self.service.project.name} — {APP_NAME}")
             self.toast.show_message(tr("Project saved"))
 
@@ -356,6 +362,7 @@ class MainWindow(QMainWindow):
         self._refresh_structure()
         self._refresh_environments()
         self._broadcast_context()
+        self._sync_variables_window()
         if warnings:
             MessageDialog.show_warning(self, tr("Some files could not be loaded"), tr("These files were skipped:"), warnings)
         else:
@@ -391,6 +398,8 @@ class MainWindow(QMainWindow):
             return
         envs = list(self.service.project.environments.values())
         self.top_bar.set_environments(envs, self.environment)
+        if self._variables_window is not None:
+            self._variables_window.set_active(self.environment)
 
     def set_environment(self, name: str) -> None:
         self.environment = name
@@ -405,11 +414,23 @@ class MainWindow(QMainWindow):
             editor.set_variable_context(context)
 
     def manage_environments(self, create_new: bool = False) -> None:
+        """Open (or bring back) the floating variables window."""
         if self.service is None:
             return
-        result = EnvironmentsDialog.ask(self, self.service.project, self.service.secrets, self.environment,
-                                        create_new)
-        if result is None:
+        window = self._variables_window
+        if window is None:
+            window = self._variables_window = VariablesWindow(self)
+            window.changed.connect(self._save_variables)
+        if not window.isVisible():
+            window.load(self.service.project, self.service.secrets, self.environment, self.environment)
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        if create_new:
+            window.add_environment()
+
+    def _save_variables(self, result: EnvironmentsResult) -> None:
+        if self.service is None:
             return
         ok = self._guard(lambda: self.service.save_environments(result.global_variables, result.global_secrets,
                                                                   result.environments))
@@ -420,7 +441,13 @@ class MainWindow(QMainWindow):
         self._refresh_environments()
         self._broadcast_context()
         self._ui_state_saver.trigger()
-        self.toast.show_message(tr("Environments saved"))
+        self._update_status()
+
+    def _sync_variables_window(self) -> None:
+        """Variables changed outside the window (reload, project settings, save from a response)."""
+        window = self._variables_window
+        if window is not None and window.isVisible() and self.service is not None:
+            window.load(self.service.project, self.service.secrets, active=self.environment)
 
     def save_response_variable(self, path: tuple, value: object) -> None:
         """Response "Object" tab → right click → Save as variable…"""
@@ -435,6 +462,7 @@ class MainWindow(QMainWindow):
                                                              secret=result.secret)):
             return
         self._broadcast_context()
+        self._sync_variables_window()
         scope = (self.service.project.environments[result.environment].display_name
                  if result.environment else tr("Globals"))
         self.toast.show_message(tr("Saved {var} in {scope}", var="{{" + result.name + "}}", scope=scope))
@@ -884,7 +912,7 @@ class MainWindow(QMainWindow):
                 PaletteEntry(tr("Import cURL…"), self.import_curl),
                 PaletteEntry(tr("New Environment"), lambda: self.manage_environments(create_new=True)),
                 PaletteEntry(tr("Switch Environment"), self.switch_environment_palette, shortcut="Ctrl+E"),
-                PaletteEntry(tr("Manage Environments"), self.manage_environments),
+                PaletteEntry(tr("Manage Environments"), self.manage_environments, shortcut="Ctrl+Shift+E"),
                 PaletteEntry(tr("Format JSON"), self.format_current, shortcut="Ctrl+Shift+F"),
                 PaletteEntry(tr("Open History"), self.show_history, shortcut="Ctrl+H"),
                 PaletteEntry(tr("Project Settings"), self.edit_project),

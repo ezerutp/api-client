@@ -17,7 +17,9 @@ stored **inside your repository** so the whole team shares them through Git.
 - **JSON body editor** with syntax highlighting, line numbers, auto-indent, Format (Ctrl+Shift+F) and inline validation
   (`Invalid JSON — line 5`) that also marks the bad line. `{{variables}}` inside JSON are supported.
 - **Environments and variables:** `{{base_url}}`, `{{token}}`… with per-environment values. Undefined variables are
-  underlined in red in the URL, and hovering one shows its value.
+  underlined in red in the URL, and hovering one shows its value. The `{}` button next to the environment selector
+  (Ctrl+Shift+E) opens a floating window to search, add, rename and delete variables and environments; every edit is
+  saved right away.
 - **Secrets** in a git-ignored `.secrets.json`, masked in logs, history and cURL exports.
 - **Response viewer:** colored status, time and size, pretty-printed JSON, headers, raw view, find (Ctrl+F),
   word wrap, copy and save to file.
@@ -190,8 +192,8 @@ Keep tokens, passwords and API keys in `.secrets.json`:
 }
 ```
 
-You can also manage them from **Environments**: click the lock icon next to a variable to store its value in
-`.secrets.json` instead of `project.json`. The file is listed in `api-client/.gitignore`, which is created
+You can also manage them from the **Environment variables** window (Ctrl+Shift+E): turn on the **Secret** switch
+next to a variable to store its value in `.secrets.json` instead of `project.json`. The file is listed in `api-client/.gitignore`, which is created
 automatically. Secret values are masked in log files, history entries, the URL preview and cURL exports
 (unless you explicitly choose to include them).
 
@@ -207,6 +209,7 @@ automatically. Secret values are masked in log files, history entries, the URL p
 | Ctrl+Shift+F | Format the JSON body |
 | Ctrl+K / Ctrl+Shift+P | Command palette |
 | Ctrl+E | Switch environment |
+| Ctrl+Shift+E | Environment variables window |
 | Ctrl+P | Search the sidebar |
 | Ctrl+F | Find in the response |
 | Ctrl+D | Duplicate the request |
@@ -245,8 +248,8 @@ api_client/
 │       ├── main_window.py       wires widgets and services together
 │       ├── widgets/             sidebar, tabs, request editor, URL field, code editor, key/value
 │       │                        tables, auth/body editors, response viewer, home screen, toasts
-│       └── dialogs/             create project, new request, collections, environments, settings,
-│                                history, command palette, confirmations
+│       └── dialogs/             create project, new request, collections, environment variables,
+│                                settings, history, command palette, confirmations
 ├── tests/                       pytest suite (core logic and an end-to-end UI smoke test)
 ├── tools/mock_server.py         in-memory backend for trying the app
 └── examples/backend-tienda/     sample api-client/ folder

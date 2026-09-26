@@ -255,8 +255,8 @@ class ProjectService:
     ) -> None:
         """Replace all variables. ``environments`` maps name -> (variables, secrets)."""
         variables = dict(global_variables)
-        if "base_url" in variables:
-            self.project.base_url = variables.pop("base_url")
+        # The global base_url lives in the project default; removing it (or making it secret) clears that.
+        self.project.base_url = variables.pop("base_url", "")
         self.project.variables = variables
         self.project.environments = {
             name: Environment(name, dict(values)) for name, (values, _) in environments.items()

@@ -485,6 +485,20 @@ QTextBrowser {
 }
 #KvRow { border-bottom: 1px solid ${border}; }
 
+/* Environment variables window */
+QTableWidget#VariablesTable {
+    background: ${bg_panel};
+    border: 1px solid ${border};
+    border-radius: 8px;
+    padding: 0 4px;
+}
+QTableWidget#VariablesTable::item {
+    border-bottom: 1px solid ${border};
+    padding: 0 6px;
+}
+QTableWidget#VariablesTable::item:selected { background: ${bg_selected}; color: ${text}; }
+QTableWidget#VariablesTable QHeaderView::section { padding: 8px 6px; }
+
 /* ---------- Home screen ---------- */
 
 #HomeTitle { font-size: 26px; font-weight: 700; }
