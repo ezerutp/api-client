@@ -6,11 +6,12 @@ import json
 import re
 from typing import Any
 
-from PySide6.QtCore import QPoint, QRectF, Qt
+from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QFrame, QHeaderView, QMenu, QStackedWidget, QTreeWidget, QTreeWidgetItem, QWidget
 
 from app.i18n import tr, trn
+from app.services.json_navigation_service import Path, format_path
 from app.services.json_service import JsonVariable, parse_json
 from app.themes.manager import current_theme
 from app.ui import icons
@@ -21,9 +22,6 @@ MAX_NODES = 5000
 _ROLE_PATH = Qt.ItemDataRole.UserRole
 _ROLE_VALUE = Qt.ItemDataRole.UserRole + 1
 _VAR_MARK = "@@api-client-var@@"
-_IDENTIFIER = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*$")
-
-Path = tuple[str | int, ...]
 
 
 def json_kind(value: Any) -> str:
@@ -40,19 +38,6 @@ def json_kind(value: Any) -> str:
     if isinstance(value, (int, float)):
         return "number"
     return "string"
-
-
-def format_path(path: Path) -> str:
-    """``("carrera", "id")`` -> ``carrera.id``; ``("items", 0, "a b")`` -> ``items[0]["a b"]``."""
-    text = ""
-    for part in path:
-        if isinstance(part, int):
-            text += f"[{part}]"
-        elif _IDENTIFIER.match(part):
-            text += f".{part}" if text else part
-        else:
-            text += f"[{json.dumps(part, ensure_ascii=False)}]"
-    return text
 
 
 def summarize(value: Any) -> str:
@@ -83,8 +68,22 @@ def to_json(value: Any) -> str:
     return re.sub(f'"{_VAR_MARK}(.*?){_VAR_MARK}"', r"\1", text)
 
 
+def kind_label(kind: str) -> str:
+    return {
+        "string": tr("string"), "number": tr("number"), "boolean": tr("boolean"), "null": tr("null"),
+        "object": tr("object"), "array": tr("array"), "variable": tr("variable"),
+    }[kind]
+
+
 class JsonTreeView(QFrame):
-    """Shows the last valid document; while the editor text is invalid it keeps it and says so."""
+    """Shows the last valid document; while the editor text is invalid it keeps it and says so.
+
+    Knows nothing about the editor: it reports the path of the node the user moves to
+    (mouse or keyboard) and can be told which node to select.
+    """
+
+    path_selected = Signal(object)   # Path; single click or arrow keys
+    path_activated = Signal(object)  # Path; double click (the listener may move the focus away)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -93,6 +92,8 @@ class JsonTreeView(QFrame):
         self._has_value = False
         self._collapsed: set[Path] = set()
         self._badges: dict[str, QIcon] = {}
+        self._items: dict[Path, QTreeWidgetItem] = {}
+        self._quiet = False  # True while selecting programmatically: no path_selected echo
 
         self.expand_button = icon_button("chevrons-down-up", tr("Collapse all"), on_click=self.toggle_expand_all, size=14)
         self.title = label(tr("Object"), "ObjectViewTitle")
@@ -107,13 +108,16 @@ class JsonTreeView(QFrame):
         self.tree.setHeaderHidden(True)
         self.tree.setUniformRowHeights(True)
         self.tree.setIndentation(16)
-        self.tree.setExpandsOnDoubleClick(True)
+        self.tree.setExpandsOnDoubleClick(False)  # double click jumps into the editor instead
         self.tree.header().setStretchLastSection(True)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_menu)
         self.tree.itemCollapsed.connect(lambda item: self._collapsed.add(item.data(0, _ROLE_PATH)))
         self.tree.itemExpanded.connect(lambda item: self._collapsed.discard(item.data(0, _ROLE_PATH)))
+        self.tree.currentItemChanged.connect(lambda item, _previous: self._emit_path(self.path_selected, item))
+        self.tree.itemClicked.connect(lambda item, _column: self._emit_path(self.path_selected, item))
+        self.tree.itemDoubleClicked.connect(lambda item, _column: self._emit_path(self.path_activated, item))
 
         self.message = label("", "ObjectViewMessage", wrap=True)
         self.message.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -141,7 +145,7 @@ class JsonTreeView(QFrame):
             value = parse_json(text)
         except ValueError:
             if self._has_value:
-                self._set_status(tr("Invalid JSON — showing the last valid version"))
+                self._set_status(tr("Invalid JSON — showing the last valid version; navigation is paused"))
             else:
                 self._show_message(tr("Write valid JSON to see its structure"))
             return
@@ -151,6 +155,33 @@ class JsonTreeView(QFrame):
 
     def value(self) -> Any:
         return self._value
+
+    def selected_path(self) -> Path | None:
+        item = self.tree.currentItem()
+        return item.data(0, _ROLE_PATH) if item is not None else None
+
+    def select_path(self, path: Path) -> None:
+        """Select (and reveal) the node for ``path`` without emitting ``path_selected``.
+
+        Paths cut off by ``MAX_NODES`` fall back to their closest shown ancestor.
+        """
+        path = tuple(path)
+        while path and path not in self._items:
+            path = path[:-1]
+        item = self._items.get(path)
+        if item is None or item is self.tree.currentItem():
+            return
+        self._quiet = True
+        try:
+            parent = item.parent()
+            while parent is not None:
+                parent.setExpanded(True)
+                parent = parent.parent()
+            self.tree.setCurrentItem(item)
+            self.tree.scrollToItem(item)
+        finally:
+            self._quiet = False
+        self._update_expand_button()
 
     def refresh_theme(self) -> None:
         self._badges.clear()
@@ -184,14 +215,15 @@ class JsonTreeView(QFrame):
         self.tree.setUpdatesEnabled(False)
         self.tree.blockSignals(True)
         self.tree.clear()
+        self._items.clear()
         budget = [MAX_NODES]
         if kind in ("object", "array"):
             self._add_children(self.tree.invisibleRootItem(), value, (), budget)
         else:
             self._add_node(self.tree.invisibleRootItem(), tr("(value)"), value, (), budget)
         self._restore_expansion(self.tree.invisibleRootItem())
-        if selected is not None:
-            self._select_path(self.tree.invisibleRootItem(), selected)
+        if selected is not None and selected in self._items:
+            self.tree.setCurrentItem(self._items[selected])
         self.tree.blockSignals(False)
         self.tree.resizeColumnToContents(0)
         self.tree.setColumnWidth(0, min(self.tree.columnWidth(0) + 12, 260))
@@ -217,7 +249,10 @@ class JsonTreeView(QFrame):
         item.setData(0, _ROLE_PATH, path)
         item.setData(0, _ROLE_VALUE, value)
         item.setIcon(0, self._badge(kind))
-        item.setToolTip(0, format_path(path) or key)
+        tooltip = tr("Path: {path}\nType: {type}", path=format_path(path) or tr("(root)"), type=kind_label(kind))
+        item.setToolTip(0, tooltip)
+        item.setToolTip(1, tooltip)
+        self._items[path] = item
         color = {
             "string": theme.syntax_string, "number": theme.syntax_number, "boolean": theme.syntax_keyword,
             "null": theme.syntax_keyword, "variable": theme.syntax_variable,
@@ -227,7 +262,6 @@ class JsonTreeView(QFrame):
             self._add_children(item, value, path, budget)
         else:
             item.setFont(1, self._value_font())
-            item.setToolTip(1, summarize(value))
 
     def _restore_expansion(self, parent: QTreeWidgetItem) -> None:
         for index in range(parent.childCount()):
@@ -236,15 +270,12 @@ class JsonTreeView(QFrame):
                 child.setExpanded(child.data(0, _ROLE_PATH) not in self._collapsed)
                 self._restore_expansion(child)
 
-    def _select_path(self, parent: QTreeWidgetItem, path: Path) -> bool:
-        for index in range(parent.childCount()):
-            child = parent.child(index)
-            if child.data(0, _ROLE_PATH) == path:
-                self.tree.setCurrentItem(child)
-                return True
-            if self._select_path(child, path):
-                return True
-        return False
+    def _emit_path(self, signal: Signal, item: QTreeWidgetItem | None) -> None:
+        if self._quiet or item is None:
+            return
+        path = item.data(0, _ROLE_PATH)
+        if path is not None:
+            signal.emit(tuple(path))
 
     def _value_font(self) -> QFont:
         return monospace_font(max(self.font().pixelSize(), 12))
@@ -259,6 +290,7 @@ class JsonTreeView(QFrame):
     def _show_message(self, text: str) -> None:
         self._set_status("")
         self.tree.clear()
+        self._items.clear()
         self.title.setText(tr("Object"))
         self.message.setText(text)
         self.pages.setCurrentIndex(1)
