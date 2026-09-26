@@ -346,6 +346,47 @@ MESSAGES: dict[str, str] = {
         "Los valores secretos se guardan en api-client/.secrets.json, que Git ignora y nunca se comparte. "
         "Los valores del entorno tienen prioridad sobre los globales.",
 
+    # -- OpenAPI import -----------------------------------------------------------
+    "Import OpenAPI": "Importar OpenAPI",
+    "Import OpenAPI…": "Importar OpenAPI…",
+    "Spec URL": "URL del spec",
+    "Spec": "Spec",
+    "Load": "Cargar",
+    "Choose file…": "Elegir archivo…",
+    "Open OpenAPI spec": "Abrir spec OpenAPI",
+    "OpenAPI JSON (*.json);;All files (*)": "OpenAPI JSON (*.json);;Todos los archivos (*)",
+    "springdoc-openapi serves the spec at /v3/api-docs. Endpoints that already exist (same method and path) are "
+    "left untouched.":
+        "springdoc-openapi sirve el spec en /v3/api-docs. Los endpoints que ya existen (mismo método y ruta) no se "
+        "modifican.",
+    "Loading spec…": "Cargando spec…",
+    "Could not read {path}: {error}": "No se pudo leer {path}: {error}",
+    "The server answered {status}. Check that springdoc-openapi is enabled and the URL is right.":
+        "El servidor respondió {status}. Revisa que springdoc-openapi esté habilitado y que la URL sea correcta.",
+    "The content is not valid JSON.": "El contenido no es JSON válido.",
+    "The content is not an OpenAPI document.": "El contenido no es un documento OpenAPI.",
+    "The content is not an OpenAPI 3 document (missing “openapi: 3.x”).":
+        "El contenido no es un documento OpenAPI 3 (falta “openapi: 3.x”).",
+    "YAML specs are not supported. Use the JSON version (springdoc serves it at /v3/api-docs).":
+        "Los specs en YAML no están soportados. Usa la versión JSON (springdoc la sirve en /v3/api-docs).",
+    "Swagger 2.0 specs are not supported yet. springdoc (OpenAPI 3) serves /v3/api-docs.":
+        "Los specs Swagger 2.0 aún no están soportados. springdoc (OpenAPI 3) sirve /v3/api-docs.",
+    "The spec does not define any paths.": "El spec no define ninguna ruta.",
+    "The spec does not define any operations.": "El spec no define ninguna operación.",
+    "{endpoint}: {type} bodies are not supported, the body was left empty.":
+        "{endpoint}: los bodies {type} no están soportados, el body quedó vacío.",
+    "{title}: {total}, {new} new.": "{title}: {total}, {new} nuevos.",
+    "{n} endpoint": "{n} endpoint",
+    "{n} endpoints": "{n} endpoints",
+    "new collection": "colección nueva",
+    "existing collection": "colección existente",
+    "already in the project": "ya está en el proyecto",
+    "Import": "Importar",
+    "Import {n} request": "Importar {n} petición",
+    "Import {n} requests": "Importar {n} peticiones",
+    "Imported {n} request": "Se importó {n} petición",
+    "Imported {n} requests": "Se importaron {n} peticiones",
+
     # -- Settings dialog -----------------------------------------------------------
     "Appearance": "Apariencia",
     "Network": "Red",

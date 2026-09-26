@@ -62,6 +62,7 @@ class ThemeManager(QObject):
             "icon_chevron": ("chevron-down", theme.text_muted, 2.0),
             "icon_chevron_right": ("chevron-right", theme.text_muted, 2.0),
             "icon_check": ("check", theme.accent_text, 3.0),
+            "icon_minus": ("minus", theme.accent_text, 3.0),
             "icon_close": ("close", theme.text_faint, 2.0),
             "icon_close_hover": ("close", theme.text, 2.0),
         }

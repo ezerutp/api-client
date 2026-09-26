@@ -41,6 +41,7 @@ from app.themes.manager import ThemeManager
 from app.ui.dialogs.base import BaseDialog, ChoiceDialog, ConfirmDialog, MessageDialog, TextInputDialog
 from app.ui.dialogs.command_palette import CommandPalette, PaletteEntry
 from app.ui.dialogs.history_dialog import HistoryDialog
+from app.ui.dialogs.openapi_dialog import OpenApiImportDialog
 from app.ui.dialogs.project_dialogs import CreateProjectDialog, ProjectSettingsDialog
 from app.ui.dialogs.request_dialogs import CollectionDialog, CurlImportDialog, NewRequestDialog
 from app.ui.dialogs.settings_dialog import SettingsDialog
@@ -170,6 +171,7 @@ class MainWindow(QMainWindow):
         sb.new_collection.connect(self.new_collection)
         sb.new_environment.connect(lambda: self.manage_environments(create_new=True))
         sb.import_curl.connect(self.import_curl)
+        sb.import_openapi.connect(self.import_openapi)
         sb.edit_collection.connect(self.edit_collection)
         sb.duplicate_collection.connect(self.duplicate_collection)
         sb.delete_collection.connect(self.delete_collection)
@@ -700,6 +702,21 @@ class MainWindow(QMainWindow):
         self.open_request(request.id)
         self.toast.show_message(curl_import_message(imported))
 
+    def import_openapi(self) -> None:
+        if self.service is None:
+            return
+        self.flush_saves()
+        endpoints = OpenApiImportDialog.ask(self, self.http, self.variable_context(), self.service.collections,
+                                            self.service.root_dir)
+        if not endpoints:
+            return
+        holder = {}
+        if not self._guard(lambda: holder.setdefault("summary", self.service.import_endpoints(endpoints))):
+            return
+        summary = holder["summary"]
+        self._refresh_structure()
+        self.toast.show_message(trn("Imported {n} request", "Imported {n} requests", summary.requests))
+
     def new_collection(self) -> None:
         if self.service is None:
             return
@@ -910,6 +927,7 @@ class MainWindow(QMainWindow):
                 PaletteEntry(tr("New Request"), lambda: self.new_request(None), shortcut="Ctrl+N"),
                 PaletteEntry(tr("New Collection"), self.new_collection, shortcut="Ctrl+Shift+N"),
                 PaletteEntry(tr("Import cURL…"), self.import_curl),
+                PaletteEntry(tr("Import OpenAPI…"), self.import_openapi),
                 PaletteEntry(tr("New Environment"), lambda: self.manage_environments(create_new=True)),
                 PaletteEntry(tr("Switch Environment"), self.switch_environment_palette, shortcut="Ctrl+E"),
                 PaletteEntry(tr("Manage Environments"), self.manage_environments, shortcut="Ctrl+Shift+E"),
