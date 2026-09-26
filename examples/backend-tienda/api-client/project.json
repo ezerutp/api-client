@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "Backend Tienda",
+  "base_url": "http://localhost:8080",
+  "active_environment": "local",
+  "variables": {
+    "product_id": "1"
+  },
+  "environments": {
+    "local": {
+      "base_url": "http://localhost:8080",
+      "token": "local-dev-token"
+    },
+    "development": {
+      "base_url": "https://dev.api.midominio.com"
+    },
+    "production": {
+      "base_url": "https://api.midominio.com"
+    }
+  },
+  "collections": [
+    "productos",
+    "usuarios",
+    "auth"
+  ]
+}

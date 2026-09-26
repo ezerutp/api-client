@@ -1,0 +1,83 @@
+{
+  "id": "productos",
+  "name": "Productos",
+  "base_path": "/api/productos",
+  "requests": [
+    {
+      "id": "get-products",
+      "name": "Obtener productos",
+      "method": "GET",
+      "url": "{{base_url}}/api/productos",
+      "params": [
+        {"enabled": true, "key": "page", "value": "0"},
+        {"enabled": true, "key": "size", "value": "20"},
+        {"enabled": true, "key": "sort", "value": "nombre"},
+        {"enabled": false, "key": "category", "value": "tecnologia"}
+      ],
+      "path_params": [],
+      "headers": [{"enabled": true, "key": "Accept", "value": "application/json"}],
+      "auth": {"type": "none"},
+      "body": null,
+      "created_at": "2026-09-25T10:00:00Z",
+      "updated_at": "2026-09-25T10:00:00Z"
+    },
+    {
+      "id": "get-product-by-id",
+      "name": "Producto por ID",
+      "method": "GET",
+      "url": "{{base_url}}/api/productos/{id}",
+      "params": [],
+      "path_params": [{"enabled": true, "key": "id", "value": "{{product_id}}"}],
+      "headers": [],
+      "auth": {"type": "none"},
+      "body": null,
+      "created_at": "2026-09-25T10:00:00Z",
+      "updated_at": "2026-09-25T10:00:00Z"
+    },
+    {
+      "id": "create-product",
+      "name": "Crear producto",
+      "method": "POST",
+      "url": "{{base_url}}/api/productos",
+      "params": [],
+      "path_params": [],
+      "headers": [{"enabled": true, "key": "Accept", "value": "application/json"}],
+      "auth": {"type": "bearer", "token": "{{token}}"},
+      "body": {
+        "type": "json",
+        "content": "{\n  \"nombre\": \"Monitor\",\n  \"precio\": 800,\n  \"stock\": 5\n}"
+      },
+      "created_at": "2026-09-25T10:00:00Z",
+      "updated_at": "2026-09-25T10:00:00Z"
+    },
+    {
+      "id": "update-product",
+      "name": "Actualizar producto",
+      "method": "PUT",
+      "url": "{{base_url}}/api/productos/{id}",
+      "params": [],
+      "path_params": [{"enabled": true, "key": "id", "value": "{{product_id}}"}],
+      "headers": [],
+      "auth": {"type": "bearer", "token": "{{token}}"},
+      "body": {
+        "type": "json",
+        "content": "{\n  \"nombre\": \"Laptop\",\n  \"precio\": 2500,\n  \"stock\": 10\n}"
+      },
+      "created_at": "2026-09-25T10:00:00Z",
+      "updated_at": "2026-09-25T10:00:00Z"
+    },
+    {
+      "id": "delete-product",
+      "name": "Eliminar producto",
+      "method": "DELETE",
+      "url": "{{base_url}}/api/productos/{id}",
+      "params": [],
+      "path_params": [{"enabled": true, "key": "id", "value": "{{product_id}}"}],
+      "headers": [],
+      "auth": {"type": "bearer", "token": "{{token}}"},
+      "body": null,
+      "created_at": "2026-09-25T10:00:00Z",
+      "updated_at": "2026-09-25T10:00:00Z"
+    }
+  ]
+}

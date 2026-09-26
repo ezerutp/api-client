@@ -1,0 +1,23 @@
+{
+  "id": "usuarios",
+  "name": "Usuarios",
+  "base_path": "/api/usuarios",
+  "requests": [
+    {
+      "id": "get-users",
+      "name": "Obtener usuarios",
+      "method": "GET",
+      "url": "{{base_url}}/api/usuarios",
+      "auth": {"type": "none"},
+      "body": null
+    },
+    {
+      "id": "create-user",
+      "name": "Crear usuario",
+      "method": "POST",
+      "url": "{{base_url}}/api/usuarios",
+      "auth": {"type": "none"},
+      "body": {"type": "json", "content": "{\n  \"nombre\": \"Ana\",\n  \"email\": \"ana@example.com\"\n}"}
+    }
+  ]
+}
