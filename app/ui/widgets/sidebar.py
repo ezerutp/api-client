@@ -154,6 +154,7 @@ class Sidebar(QWidget):
     new_request = Signal(object)      # collection id or None
     new_collection = Signal()
     new_environment = Signal()
+    import_curl = Signal()
     edit_collection = Signal(str)
     duplicate_collection = Signal(str)
     delete_collection = Signal(str)
@@ -177,6 +178,8 @@ class Sidebar(QWidget):
         new_menu.addAction(tr("New Request"), lambda: self.new_request.emit(None))
         new_menu.addAction(tr("New Collection"), self.new_collection.emit)
         new_menu.addAction(tr("New Environment"), self.new_environment.emit)
+        new_menu.addSeparator()
+        new_menu.addAction(tr("Import cURL…"), self.import_curl.emit)
         self.new_button.setMenu(new_menu)
 
         self.search = QLineEdit()

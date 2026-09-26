@@ -31,7 +31,7 @@ from app.repositories import (
     SettingsRepository,
     UiStateRepository,
 )
-from app.services.curl_service import build_curl
+from app.services.curl_service import base_url_for, build_curl
 from app.services.http_client_service import HttpClientService
 from app.services.project_service import ProjectService, find_api_dir
 from app.services.request_builder import PreparedRequest
@@ -43,12 +43,12 @@ from app.ui.dialogs.command_palette import CommandPalette, PaletteEntry
 from app.ui.dialogs.environments_dialog import EnvironmentsDialog
 from app.ui.dialogs.history_dialog import HistoryDialog
 from app.ui.dialogs.project_dialogs import CreateProjectDialog, ProjectSettingsDialog
-from app.ui.dialogs.request_dialogs import CollectionDialog, NewRequestDialog
+from app.ui.dialogs.request_dialogs import CollectionDialog, CurlImportDialog, NewRequestDialog
 from app.ui.dialogs.settings_dialog import SettingsDialog
 from app.ui.helpers import Debouncer, button, label
 from app.ui.widgets.empty_state import EditorEmptyState
 from app.ui.widgets.home_screen import HomeScreen
-from app.ui.widgets.request_editor import RequestEditor
+from app.ui.widgets.request_editor import RequestEditor, curl_import_message
 from app.ui.widgets.request_tabs import RequestTabs
 from app.ui.widgets.sidebar import Sidebar
 from app.ui.widgets.toast import Toast
@@ -166,6 +166,7 @@ class MainWindow(QMainWindow):
         sb.new_request.connect(self.new_request)
         sb.new_collection.connect(self.new_collection)
         sb.new_environment.connect(lambda: self.manage_environments(create_new=True))
+        sb.import_curl.connect(self.import_curl)
         sb.edit_collection.connect(self.edit_collection)
         sb.duplicate_collection.connect(self.duplicate_collection)
         sb.delete_collection.connect(self.delete_collection)
@@ -625,6 +626,33 @@ class MainWindow(QMainWindow):
         self._refresh_structure()
         self.open_request(request.id, is_new=True)
 
+    def import_curl(self) -> None:
+        """Paste a cURL command, then choose name and collection like a new request."""
+        if self.service is None:
+            return
+        self.flush_saves()
+        imported = CurlImportDialog.ask(self, base_url_for(self.variable_context()))
+        if imported is None:
+            return
+        selected = self.sidebar.selected_collection_id()
+        result = NewRequestDialog.ask(self, self.service.collections, selected, initial=imported.request)
+        if result is None:
+            return
+        try:
+            target = result.collection_id
+            if target is None:
+                target = self.service.create_collection(result.new_collection_name).id
+            request = self.service.create_request(target, result.name, result.method, result.url or None)
+            imported.request.method, imported.request.url = request.method, request.url
+            imported.apply_to(request)
+            self.service.save_request(request.id)
+        except OSError as exc:
+            MessageDialog.show_error(self, tr("Could not create request"), str(exc))
+            return
+        self._refresh_structure()
+        self.open_request(request.id)
+        self.toast.show_message(curl_import_message(imported))
+
     def new_collection(self) -> None:
         if self.service is None:
             return
@@ -834,6 +862,7 @@ class MainWindow(QMainWindow):
             entries += [
                 PaletteEntry(tr("New Request"), lambda: self.new_request(None), shortcut="Ctrl+N"),
                 PaletteEntry(tr("New Collection"), self.new_collection, shortcut="Ctrl+Shift+N"),
+                PaletteEntry(tr("Import cURL…"), self.import_curl),
                 PaletteEntry(tr("New Environment"), lambda: self.manage_environments(create_new=True)),
                 PaletteEntry(tr("Switch Environment"), self.switch_environment_palette, shortcut="Ctrl+E"),
                 PaletteEntry(tr("Manage Environments"), self.manage_environments),

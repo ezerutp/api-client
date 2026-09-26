@@ -448,6 +448,22 @@ MESSAGES: dict[str, str] = {
     "Copy masked": "Copiar ocultos",
     "cURL copied": "cURL copiado",
     "cURL copied (secrets masked)": "cURL copiado (secretos ocultos)",
+    # -- cURL import -------------------------------------------------------------------
+    "Import cURL": "Importar cURL",
+    "Import cURL…": "Importar cURL…",
+    "cURL command": "Comando cURL",
+    "Continue": "Continuar",
+    "Works with “Copy as cURL” from the browser (bash or cmd) and commands from API docs. URLs under the active base URL become {{base_url}}.":
+        "Funciona con “Copiar como cURL” del navegador (bash o cmd) y con comandos de la documentación de APIs. "
+        "Las URL que empiezan con la URL base activa se convierten en {{base_url}}.",
+    "Request filled from cURL": "Petición completada desde cURL",
+    "Request filled from cURL. Not supported, left out: {options}":
+        "Petición completada desde cURL. Se omitió lo que no está soportado: {options}",
+    "The text does not start with curl.": "El texto no empieza con curl.",
+    "The command has no URL.": "El comando no tiene URL.",
+    "Could not read the command: {error}": "No se pudo leer el comando: {error}",
+    "unclosed single quote": "falta cerrar una comilla simple",
+    "unclosed double quote": "falta cerrar una comilla doble",
     "Settings saved": "Ajustes guardados",
     "{n} collection": "{n} colección",
     "{n} collections": "{n} colecciones",

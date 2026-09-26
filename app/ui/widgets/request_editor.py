@@ -23,6 +23,7 @@ from app.models.api_request import ApiRequest, BodyType, HttpMethod, PathParamet
 from app.models.api_response import ApiResponse
 from app.network.errors import ErrorKind, RequestError
 from app.network.request_worker import RequestWorker
+from app.services.curl_service import CurlImport, CurlParseError, base_url_for, parse_curl
 from app.services.http_client_service import HttpClientService
 from app.services.request_builder import PreparedRequest, RequestBuilder, extract_path_param_names
 from app.services.variable_service import VariableContext
@@ -106,6 +107,7 @@ class RequestEditor(QWidget):
         self.url_edit = UrlEdit()
         self.url_edit.text_changed.connect(self._on_url_changed)
         self.url_edit.submitted.connect(self.send)
+        self.url_edit.curl_pasted.connect(self.import_curl)
 
         self.send_button = QPushButton(tr("Send"))
         self.send_button.setObjectName("SendButton")
@@ -192,6 +194,21 @@ class RequestEditor(QWidget):
         self._update_method_style()
         self._update_tab_titles()
         self._update_url_preview()
+
+    def import_curl(self, text: str) -> None:
+        """Fill this request from a cURL command (pasted into the URL bar)."""
+        try:
+            imported = parse_curl(text, base_url_for(self.url_edit.variable_context))
+        except CurlParseError as exc:
+            self.notify.emit(str(exc))
+            return
+        self.apply_curl(imported)
+
+    def apply_curl(self, imported: CurlImport) -> None:
+        imported.apply_to(self.request)
+        self.load(self.request)
+        self._emit_changed()
+        self.notify.emit(curl_import_message(imported))
 
     def _emit_changed(self) -> None:
         if not self._loading:
@@ -415,3 +432,9 @@ class RequestEditor(QWidget):
         if self._worker is not None:
             self._worker.cancel()
             self._worker = None
+
+
+def curl_import_message(imported: CurlImport) -> str:
+    if imported.ignored:
+        return tr("Request filled from cURL. Not supported, left out: {options}", options=", ".join(imported.ignored))
+    return tr("Request filled from cURL")
