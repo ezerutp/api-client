@@ -30,6 +30,10 @@ stored **inside your repository** so the whole team shares them through Git.
 - **History** of sent requests (SQLite) that you can filter and clear.
 - **Command palette** (Ctrl+K) to jump to any request or action.
 - **Copy as cURL**, which warns you and masks secrets when the request carries credentials.
+- **Import from OpenAPI 3** (**New › Import OpenAPI…**): load the spec from `{{base_url}}/v3/api-docs` (springdoc) or
+  a JSON file, preview it, and get one collection per controller with path variables, query params, auth and a sample
+  JSON body built from the schema. Importing again only adds endpoints that are new (same method and path are left
+  untouched).
 - **Dark theme** by default, plus Light and System.
 - **English and Spanish interface**: follows the system language by default, and you can change it in
   Settings → Appearance.
@@ -97,6 +101,7 @@ python main.py examples/backend-tienda # in another terminal
 ```
 
 Open **Productos › Crear producto**, press **Ctrl+Enter**, and you get `201 Created` with the new product.
+The mock also serves an OpenAPI spec at `/v3/api-docs`, so **New › Import OpenAPI…** works against it too.
 
 ## How `api-client/` works
 
@@ -239,7 +244,8 @@ api_client/
 │   │   ├── auth_strategies.py   one strategy per auth type (extension point for OAuth2)
 │   │   ├── project_service.py   operations on an open api-client/ folder
 │   │   ├── json_service.py      validation/formatting that tolerates {{variables}}
-│   │   └── curl_service.py      "Copy as cURL"
+│   │   ├── curl_service.py      "Copy as cURL" and cURL import
+│   │   └── openapi_service.py   OpenAPI 3 spec → collections and requests
 │   ├── network/                 QRunnable worker, exception → readable error mapping
 │   ├── importers/               interfaces for future importers/exporters
 │   ├── themes/                  palettes (theme.py), QSS template (style.qss), theme manager
@@ -290,7 +296,7 @@ The architecture already has extension points for:
 
 - **Import endpoints from Spring Boot:** scan `@RestController`, `@RequestMapping`, `@GetMapping`,
   `@PostMapping`… and generate collections (`app/importers/base.py`, `CollectionImporter`).
-- Postman / OpenAPI import and collection export (`CollectionImporter` / `CollectionExporter`).
+- Postman import and collection export (`CollectionImporter` / `CollectionExporter`).
 - OAuth2 and API-key auth (`app/services/auth_strategies.py`, `register_strategy`).
 - Proxy and client certificates (`NetworkSettings`).
 

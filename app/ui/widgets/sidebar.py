@@ -155,6 +155,7 @@ class Sidebar(QWidget):
     new_collection = Signal()
     new_environment = Signal()
     import_curl = Signal()
+    import_openapi = Signal()
     edit_collection = Signal(str)
     duplicate_collection = Signal(str)
     delete_collection = Signal(str)
@@ -180,6 +181,7 @@ class Sidebar(QWidget):
         new_menu.addAction(tr("New Environment"), self.new_environment.emit)
         new_menu.addSeparator()
         new_menu.addAction(tr("Import cURL…"), self.import_curl.emit)
+        new_menu.addAction(tr("Import OpenAPI…"), self.import_openapi.emit)
         self.new_button.setMenu(new_menu)
 
         self.search = QLineEdit()

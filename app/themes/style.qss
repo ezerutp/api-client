@@ -605,6 +605,18 @@ QHeaderView::section {
     font-weight: 600;
 }
 
+QTreeWidget::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid ${border_strong};
+    border-radius: 4px;
+    background: ${bg_input};
+}
+QTreeWidget::indicator:hover { border-color: ${text_faint}; }
+QTreeWidget::indicator:checked { background: ${accent}; border-color: ${accent}; image: url(${icon_check}); }
+QTreeWidget::indicator:indeterminate { background: ${accent}; border-color: ${accent}; image: url(${icon_minus}); }
+QTreeWidget::indicator:disabled { background: ${bg_hover}; border-color: ${border}; }
+
 QListWidget#SettingsNav {
     background: transparent;
     border: none;

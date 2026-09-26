@@ -17,6 +17,7 @@ from app.models.project import Project
 from app.repositories.collection_repository import CollectionRepository
 from app.repositories.project_repository import PROJECT_FILE, ProjectLoadError, ProjectRepository
 from app.repositories.secrets_repository import Secrets, SecretsRepository
+from app.services.openapi_service import ImportedEndpoint, common_base_path, normalize_path
 from app.services.variable_service import VariableContext, build_variable_context
 from app.utils.logging_setup import secret_registry
 from app.utils.slug import unique_name, unique_slug
@@ -44,6 +45,14 @@ def find_api_dir(folder: Path) -> Path | None:
 class OpenResult:
     service: ProjectService
     warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ImportSummary:
+    requests: int = 0
+    new_collections: list[str] = field(default_factory=list)
+    #: Endpoints left out because the project already has the same method and path.
+    skipped: int = 0
 
 
 class ProjectService:
@@ -161,6 +170,32 @@ class ProjectService:
         self._collections.insert(self._collections.index(source) + 1, copy)
         self._save_order()
         return copy
+
+    def import_endpoints(self, endpoints: list[ImportedEndpoint]) -> ImportSummary:
+        """Add imported requests, grouped by collection name. Existing method + path pairs are skipped,
+        so importing the same spec again only brings in what is new."""
+        summary = ImportSummary()
+        taken = {(r.method.value, normalize_path(r.url)) for c in self._collections for r in c.requests}
+        grouped: dict[str, list[ImportedEndpoint]] = {}
+        for endpoint in endpoints:
+            if endpoint.key in taken:
+                summary.skipped += 1
+                continue
+            taken.add(endpoint.key)
+            grouped.setdefault(endpoint.collection, []).append(endpoint)
+        for name, items in grouped.items():
+            collection = next((c for c in self._collections if c.name.casefold() == name.casefold()), None)
+            if collection is None:
+                collection = Collection(id=unique_slug(name, self._taken_collection_ids()), name=name,
+                                        base_path=common_base_path([e.path for e in items]))
+                self._collections.append(collection)
+                summary.new_collections.append(name)
+            collection.requests += [e.request.clone() for e in items]
+            self._collections_repo.save(collection)
+            summary.requests += len(items)
+        if summary.new_collections:
+            self._save_order()
+        return summary
 
     def delete_collection(self, collection_id: str) -> Collection:
         collection = self._require_collection(collection_id)
