@@ -6,10 +6,19 @@ from dataclasses import dataclass
 from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QPainter
 from PySide6.QtWidgets import (
-    QDialog, QFrame, QLineEdit, QListWidget, QListWidgetItem, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
-    QVBoxLayout, QWidget,
+    QDialog,
+    QFrame,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QVBoxLayout,
+    QWidget,
 )
 
+from app.i18n import tr
 from app.themes.manager import current_theme
 
 ROLE_ENTRY = Qt.ItemDataRole.UserRole + 1
@@ -76,7 +85,7 @@ class _Delegate(QStyledItemDelegate):
 
 
 class CommandPalette(QDialog):
-    def __init__(self, parent: QWidget, entries: list[PaletteEntry], placeholder: str = "Search requests and actions…") -> None:
+    def __init__(self, parent: QWidget, entries: list[PaletteEntry], placeholder: str | None = None) -> None:
         super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._entries = entries
@@ -84,7 +93,7 @@ class CommandPalette(QDialog):
         frame = QFrame()
         frame.setObjectName("CommandPalette")
         self.search = QLineEdit()
-        self.search.setPlaceholderText(placeholder)
+        self.search.setPlaceholderText(placeholder or tr("Search requests and actions…"))
         self.search.textChanged.connect(self._filter)
         self.search.installEventFilter(self)
         self.list = QListWidget()
@@ -139,6 +148,6 @@ class CommandPalette(QDialog):
 
     @staticmethod
     def run(parent: QWidget, entries: list[PaletteEntry], placeholder: str | None = None) -> None:
-        palette = CommandPalette(parent, entries, *( [placeholder] if placeholder else []))
+        palette = CommandPalette(parent, entries, placeholder)
         if palette.exec() == QDialog.DialogCode.Accepted and palette._chosen is not None:
             palette._chosen.action()

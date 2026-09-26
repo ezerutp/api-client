@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Self
 
+from app.i18n import tr
 from app.models._common import as_bool, as_dict, as_list, as_str, new_id, utc_now_iso
 from app.models.auth import Authentication
 
@@ -75,7 +76,7 @@ class BodyType(StrEnum):
 
     @property
     def label(self) -> str:
-        return {"none": "None", "json": "JSON", "text": "Text"}[self.value]
+        return {"none": tr("None"), "json": "JSON", "text": tr("Text")}[self.value]
 
     @property
     def default_content_type(self) -> str | None:

@@ -21,6 +21,7 @@ class AppSettings:
     recent_limit: int = 10
     history_limit: int = 500
     theme: str = "dark"  # dark | light | system
+    language: str = "system"  # system | en | es
     editor_font_size: int = 13
     network: NetworkSettings = field(default_factory=NetworkSettings)
 

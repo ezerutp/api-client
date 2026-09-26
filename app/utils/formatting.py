@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from app.i18n import tr
+
 
 def format_size(size_bytes: int | None) -> str:
     if size_bytes is None:
@@ -25,12 +27,12 @@ def format_relative_time(moment: datetime, now: datetime | None = None) -> str:
     now = now or datetime.now(moment.tzinfo)
     seconds = int((now - moment).total_seconds())
     if seconds < 60:
-        return "just now"
+        return tr("just now")
     if seconds < 3600:
-        return f"{seconds // 60} min ago"
+        return tr("{n} min ago", n=seconds // 60)
     if seconds < 86_400:
-        return f"{seconds // 3600} h ago"
+        return tr("{n} h ago", n=seconds // 3600)
     if seconds < 7 * 86_400:
         days = seconds // 86_400
-        return "yesterday" if days == 1 else f"{days} days ago"
-    return moment.strftime("%b %d, %Y")
+        return tr("yesterday") if days == 1 else tr("{n} days ago", n=days)
+    return moment.strftime(tr("%b %d, %Y"))

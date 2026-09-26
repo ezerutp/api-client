@@ -6,10 +6,20 @@ from html import escape
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut, QTextDocument
 from PySide6.QtWidgets import (
-    QFileDialog, QFrame, QLabel, QLineEdit, QMenu, QProgressBar, QStackedWidget, QTabWidget, QTextBrowser,
-    QVBoxLayout, QWidget,
+    QFileDialog,
+    QFrame,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QProgressBar,
+    QStackedWidget,
+    QTabWidget,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
 )
 
+from app.i18n import tr
 from app.models.api_response import ApiResponse
 from app.network.errors import ErrorKind, RequestError
 from app.themes.manager import current_theme
@@ -29,7 +39,7 @@ class _FindBar(QFrame):
         self.setObjectName("FindBar")
         self._editor = editor
         self.field = QLineEdit()
-        self.field.setPlaceholderText("Find in response")
+        self.field.setPlaceholderText(tr("Find in response"))
         self.field.setProperty("cell", True)
         self.field.setMinimumWidth(200)
         self.field.textChanged.connect(lambda: self.find(from_start=True))
@@ -37,8 +47,8 @@ class _FindBar(QFrame):
         self._status = label("", "Faint")
         layout = hbox(
             self.field, self._status,
-            icon_button("chevron-down", "Next (Enter)", on_click=self.find, size=14),
-            icon_button("close", "Close (Esc)", on_click=self.close_bar, size=14),
+            icon_button("chevron-down", tr("Next (Enter)"), on_click=self.find, size=14),
+            icon_button("close", tr("Close (Esc)"), on_click=self.close_bar, size=14),
             spacing=2, margins=(6, 2, 4, 2),
         )
         self.setLayout(layout)
@@ -72,7 +82,7 @@ class _FindBar(QFrame):
             cursor.setPosition(0)
             self._editor.setTextCursor(cursor)
             found = self._editor.find(text)
-        self._status.setText("" if found else "No results")
+        self._status.setText("" if found else tr("No results"))
 
 
 class ResponseViewer(QWidget):
@@ -115,17 +125,17 @@ class ResponseViewer(QWidget):
         self._empty_icon = QLabel()
         key = label("Ctrl + Enter", "ShortcutKey")
         hint = QWidget()
-        hint.setLayout(hbox(label("Press", "Faint"), key, label("to send", "Faint"), spacing=6))
-        return self._centered(self._empty_icon, 6, label("Send a request to see the response here.", "EmptyText"), 2, hint)
+        hint.setLayout(hbox(label(tr("Press"), "Faint"), key, label(tr("to send"), "Faint"), spacing=6))
+        return self._centered(self._empty_icon, 6, label(tr("Send a request to see the response here."), "EmptyText"), 2, hint)
 
     def _build_loading(self) -> QWidget:
         self._progress = QProgressBar()
         self._progress.setRange(0, 0)
         self._progress.setTextVisible(False)
         self._progress.setFixedWidth(220)
-        self._loading_label = label("Sending request…", "EmptyTitle")
+        self._loading_label = label(tr("Sending request…"), "EmptyTitle")
         self._loading_time = label("0 ms", "Faint")
-        cancel = button("Cancel", "ghost", on_click=self.cancel_requested.emit)
+        cancel = button(tr("Cancel"), "ghost", on_click=self.cancel_requested.emit)
         return self._centered(self._loading_label, self._loading_time, 8, self._progress, 10, cancel)
 
     def _build_error(self) -> QWidget:
@@ -137,7 +147,7 @@ class ResponseViewer(QWidget):
             widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
             widget.setFixedWidth(460)
             widget.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self._retry = button("Try again", on_click=self.retry_requested.emit)
+        self._retry = button(tr("Try again"), on_click=self.retry_requested.emit)
         return self._centered(self._error_icon, 4, self._error_title, self._error_message, 2, self._error_hint, 10,
                               self._retry)
 
@@ -175,25 +185,25 @@ class ResponseViewer(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setProperty("tabStyle", "underline")
         self.tabs.setDocumentMode(True)
-        for widget, title in ((self._body_stack, "Body"), (self.headers_view, "Headers"), (self.raw_view, "Raw")):
+        for widget, title in ((self._body_stack, tr("Body")), (self.headers_view, tr("Headers")), (self.raw_view, tr("Raw"))):
             holder = QWidget()
             holder.setLayout(vbox(widget, margins=(0, 8, 0, 0)))
             self.tabs.addTab(holder, title)
 
-        self._copy_button = button("Copy", "ghost", icon_name="copy", on_click=self.copy_body)
-        self._copy_button.setToolTip("Copy response body")
-        self._wrap_button = icon_button("wrap", "Toggle word wrap", size=15)
+        self._copy_button = button(tr("Copy"), "ghost", icon_name="copy", on_click=self.copy_body)
+        self._copy_button.setToolTip(tr("Copy response body"))
+        self._wrap_button = icon_button("wrap", tr("Toggle word wrap"), size=15)
         self._wrap_button.setCheckable(True)
         self._wrap_button.toggled.connect(self._toggle_wrap)
-        self._search_button = icon_button("search", "Find (Ctrl+F)", size=15, on_click=self.open_find)
-        self._more_button = icon_button("more", "More actions", size=16)
+        self._search_button = icon_button("search", tr("Find (Ctrl+F)"), size=15, on_click=self.open_find)
+        self._more_button = icon_button("more", tr("More actions"), size=16)
         self._more_button.setPopupMode(self._more_button.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self._more_button)
-        menu.addAction("Copy body", self.copy_body)
-        menu.addAction("Copy headers", self.copy_headers)
-        menu.addAction("Copy raw response", self.copy_raw)
+        menu.addAction(tr("Copy body"), self.copy_body)
+        menu.addAction(tr("Copy headers"), self.copy_headers)
+        menu.addAction(tr("Copy raw response"), self.copy_raw)
         menu.addSeparator()
-        menu.addAction("Save body to file…", self.save_body)
+        menu.addAction(tr("Save body to file…"), self.save_body)
         self._more_button.setMenu(menu)
         corner = QWidget()
         corner.setLayout(hbox(self._search_button, self._wrap_button, self._copy_button, self._more_button,
@@ -247,8 +257,8 @@ class ResponseViewer(QWidget):
         self._status_text.setStyleSheet(f"color: {color};")
         self._time_label.setText(format_duration(response.elapsed_ms))
         self._size_label.setText(format_size(response.size_bytes))
-        self._size_label.setToolTip(f"Body: {format_size(len(response.body))}\nHeaders included in total")
-        self._truncated.setText("Body truncated (over 50 MB)" if response.truncated else "")
+        self._size_label.setToolTip(tr("Body: {size}\nHeaders included in total", size=format_size(len(response.body))))
+        self._truncated.setText(tr("Body truncated (over 50 MB)") if response.truncated else "")
         self._render_body(response)
         self._render_headers(response)
         raw = response.raw_text() if response.is_text else response.raw_text().split("\n\n")[0] + "\n\n<binary body>"
@@ -260,14 +270,14 @@ class ResponseViewer(QWidget):
     def _render_body(self, response: ApiResponse) -> None:
         self._find_bar.hide()
         if not response.body:
-            self._body_message.setText("No response body" if response.method != "HEAD" else "HEAD responses have no body")
+            self._body_message.setText(tr("No response body") if response.method != "HEAD" else tr("HEAD responses have no body"))
             self._body_stack.setCurrentIndex(1)
             self._copy_button.setEnabled(False)
             return
         if not response.is_text:
             self._body_message.setText(
-                f"Binary content ({response.content_type or 'unknown type'}, {format_size(len(response.body))}).\n"
-                "Use More → Save body to file to inspect it."
+                tr("Binary content ({type}, {size}).\nUse More → Save body to file to inspect it.",
+                   type=response.content_type or tr("unknown type"), size=format_size(len(response.body)))
             )
             self._body_stack.setCurrentIndex(1)
             self._copy_button.setEnabled(False)
@@ -293,11 +303,11 @@ class ResponseViewer(QWidget):
 
         section = f"color:{theme.text_faint}; font-size:11px; font-weight:600; letter-spacing:.5px;"
         html = (
-            f"<div style='{section}'>RESPONSE HEADERS ({len(response.headers)})</div>"
+            f"<div style='{section}'>{tr('RESPONSE HEADERS')} ({len(response.headers)})</div>"
             f"<table cellspacing='0' style='margin:6px 0 16px 0;'>{rows(response.headers)}</table>"
-            f"<div style='{section}'>REQUEST</div>"
+            f"<div style='{section}'>{tr('REQUEST')}</div>"
             f"<table cellspacing='0' style='margin:6px 0 0 0;'>"
-            f"{rows([('Method', response.method), ('URL', response.url), ('HTTP version', response.http_version)])}"
+            f"{rows([(tr('Method'), response.method), ('URL', response.url), (tr('HTTP version'), response.http_version)])}"
             f"{rows(response.request_headers)}</table>"
         )
         self.headers_view.setHtml(html)
@@ -333,31 +343,31 @@ class ResponseViewer(QWidget):
         self.body_view.set_wrap(wrap)
         self.raw_view.set_wrap(wrap)
 
-    def _copy(self, text: str, what: str) -> None:
+    def _copy(self, text: str, message: str) -> None:
         QGuiApplication.clipboard().setText(text)
-        self.notify.emit(f"{what} copied to clipboard")
+        self.notify.emit(message)
 
     def copy_body(self) -> None:
         if self._response is not None and self._response.is_text:
-            self._copy(self._response.pretty_body(), "Response body")
+            self._copy(self._response.pretty_body(), tr("Response body copied to clipboard"))
 
     def copy_headers(self) -> None:
         if self._response is not None:
-            self._copy("\n".join(f"{k}: {v}" for k, v in self._response.headers), "Headers")
+            self._copy("\n".join(f"{k}: {v}" for k, v in self._response.headers), tr("Headers copied to clipboard"))
 
     def copy_raw(self) -> None:
         if self._response is not None:
-            self._copy(self._response.raw_text(), "Raw response")
+            self._copy(self._response.raw_text(), tr("Raw response copied to clipboard"))
 
     def save_body(self) -> None:
         if self._response is None:
             return
         extension = "json" if self._response.is_json else "txt"
-        path, _ = QFileDialog.getSaveFileName(self, "Save response body", f"response.{extension}")
+        path, _ = QFileDialog.getSaveFileName(self, tr("Save response body"), f"response.{extension}")
         if path:
             with open(path, "wb") as handle:
                 handle.write(self._response.body)
-            self.notify.emit("Response saved")
+            self.notify.emit(tr("Response saved"))
 
     def set_font_size(self, size: int) -> None:
         self.body_view.set_font_size(size)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QListWidget, QListWidgetItem, QWidget
 
+from app.i18n import tr
 from app.models.project import Project
 from app.repositories.secrets_repository import Secrets
 from app.ui.dialogs.base import BaseDialog, ConfirmDialog, TextInputDialog
@@ -26,7 +27,7 @@ class EnvironmentsResult:
 class EnvironmentsDialog(BaseDialog):
     def __init__(self, parent: QWidget | None, project: Project, secrets: Secrets, current: str | None,
                  create_new: bool = False) -> None:
-        super().__init__(parent, "Environments", width=820)
+        super().__init__(parent, tr("Environments"), width=820)
         self.setMinimumHeight(500)
         self._data: dict[str, list[KvItem]] = {}
         self._current_key: str | None = None
@@ -44,25 +45,25 @@ class EnvironmentsDialog(BaseDialog):
         self.list.setFixedWidth(200)
         self.list.currentItemChanged.connect(self._on_selection_changed)
         self.list.itemDoubleClicked.connect(lambda _: self._rename())
-        add = icon_button("plus", "Add environment", size=14, on_click=self._add)
-        self._rename_button = icon_button("pencil", "Rename", size=14, on_click=self._rename)
-        self._duplicate_button = icon_button("copy", "Duplicate", size=14, on_click=self._duplicate)
-        self._delete_button = icon_button("trash", "Delete", size=14, on_click=self._delete)
-        self._rename_button.setToolTip("Rename environment")
+        add = icon_button("plus", tr("Add environment"), size=14, on_click=self._add)
+        self._rename_button = icon_button("pencil", tr("Rename"), size=14, on_click=self._rename)
+        self._duplicate_button = icon_button("copy", tr("Duplicate"), size=14, on_click=self._duplicate)
+        self._delete_button = icon_button("trash", tr("Delete"), size=14, on_click=self._delete)
+        self._rename_button.setToolTip(tr("Rename environment"))
 
         self.env_title = label("", "EmptyTitle")
         self.env_hint = label("", "Hint", wrap=True)
-        self.editor = KeyValueEditor(key_placeholder="Variable", value_placeholder="Value", secret_column=True)
+        self.editor = KeyValueEditor(key_placeholder=tr("Variable"), value_placeholder=tr("Value"), secret_column=True)
 
-        left = vbox(label("ENVIRONMENTS", "SectionLabel"), self.list,
+        left = vbox(label(tr("ENVIRONMENTS"), "SectionLabel"), self.list,
                     hbox(add, self._duplicate_button, self._rename_button, None, self._delete_button, spacing=2),
                     spacing=6)
         right = vbox(self.env_title, self.env_hint, 6, self.editor, spacing=4)
         self.content.addLayout(hbox(left, 10, right, spacing=10), 1)
         self.content.addWidget(label(
-            "Lock a variable to store it in api-client/.secrets.json, which is git-ignored and never shared. "
-            "Environment values override globals.", "Hint", wrap=True))
-        self.ok_button.setText("Save")
+            tr("Lock a variable to store it in api-client/.secrets.json, which is git-ignored and never shared. "
+               "Environment values override globals."), "Hint", wrap=True))
+        self.ok_button.setText(tr("Save"))
         self._populate(current)
         if create_new:
             self._add()
@@ -72,7 +73,7 @@ class EnvironmentsDialog(BaseDialog):
     def _populate(self, select: str | None) -> None:
         self.list.blockSignals(True)
         self.list.clear()
-        globals_item = QListWidgetItem("Globals")
+        globals_item = QListWidgetItem(tr("Globals"))
         globals_item.setData(Qt.ItemDataRole.UserRole, GLOBALS)
         self.list.addItem(globals_item)
         for name in self._data:
@@ -99,15 +100,15 @@ class EnvironmentsDialog(BaseDialog):
         key = current.data(Qt.ItemDataRole.UserRole)
         self._current_key = key
         is_globals = key == GLOBALS
-        self.env_title.setText("Globals" if is_globals else current.text())
-        self.env_hint.setText("Shared by every environment." if is_globals else
-                              f"Active when “{current.text()}” is selected in the top bar.")
+        self.env_title.setText(tr("Globals") if is_globals else current.text())
+        self.env_hint.setText(tr("Shared by every environment.") if is_globals else
+                              tr("Active when “{env}” is selected in the top bar.", env=current.text()))
         self.editor.set_items(self._data.get(key, []))
         for widget in (self._rename_button, self._delete_button, self._duplicate_button):
             widget.setEnabled(not is_globals)
 
     def _ask_name(self, title: str, value: str = "") -> str | None:
-        name = TextInputDialog.ask(self, title, "Environment name", value, "Save")
+        name = TextInputDialog.ask(self, title, tr("Environment name"), value, tr("Save"))
         if not name:
             return None
         slug = slugify(name, fallback="environment")
@@ -118,7 +119,7 @@ class EnvironmentsDialog(BaseDialog):
         return slug
 
     def _add(self) -> None:
-        name = self._ask_name("New environment")
+        name = self._ask_name(tr("New environment"))
         if name:
             self._store_current()
             self._data[name] = [KvItem("base_url", "")]
@@ -129,7 +130,7 @@ class EnvironmentsDialog(BaseDialog):
         if self._current_key in (None, GLOBALS):
             return
         self._store_current()
-        name = self._ask_name("Duplicate environment", f"{self._current_key}-copy")
+        name = self._ask_name(tr("Duplicate environment"), f"{self._current_key}-copy")
         if name:
             self._data[name] = [KvItem(i.key, i.value, i.enabled, i.secret) for i in self._data[self._current_key]]
             self._populate(name)
@@ -139,7 +140,7 @@ class EnvironmentsDialog(BaseDialog):
         if old in (None, GLOBALS):
             return
         self._store_current()
-        new = self._ask_name("Rename environment", old)
+        new = self._ask_name(tr("Rename environment"), old)
         if new and new != old:
             self._data = {(new if k == old else k): v for k, v in self._data.items()}
             self._current_key = None
@@ -149,8 +150,7 @@ class EnvironmentsDialog(BaseDialog):
         key = self._current_key
         if key in (None, GLOBALS):
             return
-        if ConfirmDialog.ask(self, "Delete environment?", f"“{key}” and its variables (including secrets) will be "
-                                                          "removed when you save."):
+        if ConfirmDialog.ask(self, tr("Delete environment?"), tr("“{env}” and its variables (including secrets) will be removed when you save.", env=key)):
             del self._data[key]
             self._current_key = None
             self._populate(GLOBALS)

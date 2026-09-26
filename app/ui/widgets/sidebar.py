@@ -3,10 +3,20 @@ from __future__ import annotations
 from PySide6.QtCore import QModelIndex, QPoint, QRect, QSize, QSortFilterProxyModel, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QKeyEvent, QPainter, QPen, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QAbstractItemView, QLabel, QLineEdit, QMenu, QStackedWidget, QStyle, QStyledItemDelegate,
-    QStyleOptionViewItem, QTreeView, QVBoxLayout, QWidget,
+    QAbstractItemView,
+    QLabel,
+    QLineEdit,
+    QMenu,
+    QStackedWidget,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QTreeView,
+    QVBoxLayout,
+    QWidget,
 )
 
+from app.i18n import tr
 from app.models.api_request import ApiRequest
 from app.models.collection import Collection
 from app.themes.manager import current_theme
@@ -161,23 +171,23 @@ class Sidebar(QWidget):
         self.setMinimumWidth(200)
         self._restoring = False
 
-        self.new_button = button("New", "primary", icon_name="plus")
+        self.new_button = button(tr("New"), "primary", icon_name="plus")
         self.new_button.setMinimumHeight(34)
         new_menu = QMenu(self.new_button)
-        new_menu.addAction("New Request", lambda: self.new_request.emit(None))
-        new_menu.addAction("New Collection", self.new_collection.emit)
-        new_menu.addAction("New Environment", self.new_environment.emit)
+        new_menu.addAction(tr("New Request"), lambda: self.new_request.emit(None))
+        new_menu.addAction(tr("New Collection"), self.new_collection.emit)
+        new_menu.addAction(tr("New Environment"), self.new_environment.emit)
         self.new_button.setMenu(new_menu)
 
         self.search = QLineEdit()
         self.search.setObjectName("SearchField")
-        self.search.setPlaceholderText("Search requests...")
+        self.search.setPlaceholderText(tr("Search requests..."))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self._on_search)
         self._search_icon = QLabel(self.search)
         self._search_icon.move(10, 9)
 
-        self._add_collection = icon_button("plus", "New collection (Ctrl+Shift+N)", size=14,
+        self._add_collection = icon_button("plus", tr("New collection (Ctrl+Shift+N)"), size=14,
                                            on_click=self.new_collection.emit)
 
         self.model = QStandardItemModel(self)
@@ -208,19 +218,19 @@ class Sidebar(QWidget):
         empty_collections = QWidget()
         empty_collections.setObjectName("SidebarEmpty")
         empty_collections.setLayout(vbox(
-            16, label("No collections yet", "EmptyTitle"),
-            label("Group the endpoints of a controller, e.g. Productos → /api/productos.", "Hint", wrap=True),
-            4, button("Create collection", "link", icon_name="plus", on_click=self.new_collection.emit), None,
+            16, label(tr("No collections yet"), "EmptyTitle"),
+            label(tr("Group the endpoints of a controller, e.g. Productos → /api/productos."), "Hint", wrap=True),
+            4, button(tr("Create collection"), "link", icon_name="plus", on_click=self.new_collection.emit), None,
             spacing=6, margins=(14, 0, 14, 0),
         ))
         no_results = QWidget()
-        no_results.setLayout(vbox(16, label("No matching requests", "Muted"), None, margins=(14, 0, 14, 0)))
+        no_results.setLayout(vbox(16, label(tr("No matching requests"), "Muted"), None, margins=(14, 0, 14, 0)))
         self.body = QStackedWidget()
         self.body.addWidget(self.tree)
         self.body.addWidget(empty_collections)
         self.body.addWidget(no_results)
 
-        header = hbox(label("COLLECTIONS", "SectionLabel"), None, self._add_collection, margins=(14, 0, 8, 0))
+        header = hbox(label(tr("COLLECTIONS"), "SectionLabel"), None, self._add_collection, margins=(14, 0, 8, 0))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 12, 0, 8)
         layout.setSpacing(0)
@@ -380,24 +390,24 @@ class Sidebar(QWidget):
         index = self.tree.indexAt(position)
         menu = QMenu(self)
         if not index.isValid():
-            menu.addAction("New Collection", self.new_collection.emit)
-            menu.addAction("New Request", lambda: self.new_request.emit(None))
+            menu.addAction(tr("New Collection"), self.new_collection.emit)
+            menu.addAction(tr("New Request"), lambda: self.new_request.emit(None))
         elif index.data(ROLE_KIND) == KIND_COLLECTION:
             collection_id = index.data(ROLE_ID)
-            menu.addAction("New Request", lambda: self.new_request.emit(collection_id))
-            menu.addAction("Rename / Edit…", lambda: self.edit_collection.emit(collection_id))
-            menu.addAction("Duplicate", lambda: self.duplicate_collection.emit(collection_id))
+            menu.addAction(tr("New Request"), lambda: self.new_request.emit(collection_id))
+            menu.addAction(tr("Rename / Edit…"), lambda: self.edit_collection.emit(collection_id))
+            menu.addAction(tr("Duplicate"), lambda: self.duplicate_collection.emit(collection_id))
             menu.addSeparator()
-            menu.addAction("Delete", lambda: self.delete_collection.emit(collection_id))
+            menu.addAction(tr("Delete"), lambda: self.delete_collection.emit(collection_id))
         else:
             request_id = index.data(ROLE_ID)
-            menu.addAction("Open", lambda: self.request_activated.emit(request_id))
-            menu.addAction("Rename", lambda: self.rename_request.emit(request_id))
-            menu.addAction("Duplicate", lambda: self.duplicate_request.emit(request_id))
-            menu.addAction("Move to…", lambda: self.move_request.emit(request_id))
-            menu.addAction("Copy as cURL", lambda: self.copy_curl.emit(request_id))
+            menu.addAction(tr("Open"), lambda: self.request_activated.emit(request_id))
+            menu.addAction(tr("Rename"), lambda: self.rename_request.emit(request_id))
+            menu.addAction(tr("Duplicate"), lambda: self.duplicate_request.emit(request_id))
+            menu.addAction(tr("Move to…"), lambda: self.move_request.emit(request_id))
+            menu.addAction(tr("Copy as cURL"), lambda: self.copy_curl.emit(request_id))
             menu.addSeparator()
-            menu.addAction("Delete", lambda: self.delete_request.emit(request_id))
+            menu.addAction(tr("Delete"), lambda: self.delete_request.emit(request_id))
         menu.exec(self.tree.viewport().mapToGlobal(position))
 
     def refresh_theme(self) -> None:

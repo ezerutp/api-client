@@ -11,17 +11,24 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, Qt, QTimer, QUrl
+import sys
+
+from PySide6.QtCore import QProcess, QByteArray, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QGuiApplication, QKeySequence
-from PySide6.QtWidgets import QDialog, QFileDialog, QLabel, QMainWindow, QSplitter, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QLabel, QMainWindow, QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
 from app import APP_NAME
+from app.i18n import current_language, resolve_language, tr, trn
 from app.models.api_response import ApiResponse
 from app.models.history import HistoryEntry
 from app.models.settings import AppSettings
 from app.network.errors import RequestError
 from app.repositories import (
-    HistoryRepository, ProjectLoadError, ProjectUiState, RecentProjectsRepository, SettingsRepository,
+    HistoryRepository,
+    ProjectLoadError,
+    ProjectUiState,
+    RecentProjectsRepository,
+    SettingsRepository,
     UiStateRepository,
 )
 from app.services.curl_service import build_curl
@@ -204,13 +211,13 @@ class MainWindow(QMainWindow):
 
     def open_project_dialog(self) -> None:
         start = str(self.service.root_dir.parent) if self.service else str(Path.home())
-        chosen = QFileDialog.getExistingDirectory(self, "Open backend project folder", start)
+        chosen = QFileDialog.getExistingDirectory(self, tr("Open backend project folder"), start)
         if chosen:
             self.open_folder(Path(chosen))
 
     def open_folder(self, folder: Path) -> None:
         if not folder.exists():
-            MessageDialog.show_error(self, "Folder not found", f"{folder} does not exist anymore.")
+            MessageDialog.show_error(self, tr("Folder not found"), tr("{path} does not exist anymore.", path=folder))
             self.ctx.recent.remove(str(folder))
             self._refresh_recent()
             return
@@ -219,9 +226,9 @@ class MainWindow(QMainWindow):
             self.load_project(api_dir)
             return
         if ConfirmDialog.ask(
-            self, "No API Client configuration",
-            f"This folder has no api-client/project.json:\n{folder}\n\nDo you want to create it?",
-            "Create", danger=False,
+            self, tr("No API Client configuration"),
+            tr("This folder has no api-client/project.json:\n{path}\n\nDo you want to create it?", path=folder),
+            tr("Create"), danger=False,
         ):
             self.create_project_flow(folder)
 
@@ -237,23 +244,23 @@ class MainWindow(QMainWindow):
         try:
             service = ProjectService.create(root, name, base_url)
         except OSError as exc:
-            MessageDialog.show_error(self, "Could not create project",
-                                     f"Writing to {root} failed: {exc.strerror or exc}.")
+            MessageDialog.show_error(self, tr("Could not create project"),
+                                     tr("Writing to {path} failed: {error}.", path=root, error=exc.strerror or exc))
             return
         self.load_project(service.api_dir)
-        self.toast.show_message("Project created")
+        self.toast.show_message(tr("Project created"))
 
     def load_project(self, api_dir: Path) -> None:
         self._close_current_project()
         try:
             result = ProjectService.open(api_dir)
         except ProjectLoadError as exc:
-            MessageDialog.show_error(self, "Could not open project", exc.message,
-                                     ["Fix the file (it is plain JSON) or restore it from Git, then try again."])
+            MessageDialog.show_error(self, tr("Could not open project"), exc.message,
+                                     [tr("Fix the file (it is plain JSON) or restore it from Git, then try again.")])
             self._show_home()
             return
         except OSError as exc:
-            MessageDialog.show_error(self, "Could not open project", f"{api_dir}: {exc.strerror or exc}")
+            MessageDialog.show_error(self, tr("Could not open project"), f"{api_dir}: {exc.strerror or exc}")
             self._show_home()
             return
         self.service = result.service
@@ -281,9 +288,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{self.service.project.name} — {APP_NAME}")
         if result.warnings:
             MessageDialog.show_warning(
-                self, "Some files could not be loaded",
-                "These files are invalid and were skipped. They have not been modified; fix them and use "
-                "Reload from disk.", result.warnings,
+                self, tr("Some files could not be loaded"),
+                tr("These files are invalid and were skipped. They have not been modified; fix them and use "
+                   "Reload from disk."), result.warnings,
             )
 
     def _close_current_project(self) -> None:
@@ -321,7 +328,7 @@ class MainWindow(QMainWindow):
             self._refresh_recent()
             self._broadcast_context()
             self.setWindowTitle(f"{self.service.project.name} — {APP_NAME}")
-            self.toast.show_message("Project saved")
+            self.toast.show_message(tr("Project saved"))
 
     def reveal_folder(self) -> None:
         if self.service is not None:
@@ -334,7 +341,7 @@ class MainWindow(QMainWindow):
         try:
             warnings = self.service.reload()
         except ProjectLoadError as exc:
-            MessageDialog.show_error(self, "Could not reload project", exc.message)
+            MessageDialog.show_error(self, tr("Could not reload project"), exc.message)
             return
         for editor in self.tabs.editors():
             found = self.service.find_request(editor.request.id)
@@ -347,9 +354,9 @@ class MainWindow(QMainWindow):
         self._refresh_environments()
         self._broadcast_context()
         if warnings:
-            MessageDialog.show_warning(self, "Some files could not be loaded", "These files were skipped:", warnings)
+            MessageDialog.show_warning(self, tr("Some files could not be loaded"), tr("These files were skipped:"), warnings)
         else:
-            self.toast.show_message("Project reloaded")
+            self.toast.show_message(tr("Project reloaded"))
 
     def _refresh_recent(self) -> None:
         recent = self.ctx.recent.list(self.ctx.settings.recent_limit)
@@ -410,18 +417,18 @@ class MainWindow(QMainWindow):
         self._refresh_environments()
         self._broadcast_context()
         self._ui_state_saver.trigger()
-        self.toast.show_message("Environments saved")
+        self.toast.show_message(tr("Environments saved"))
 
     def switch_environment_palette(self) -> None:
         if self.service is None:
             return
         entries = [
             PaletteEntry(env.display_name, lambda n=env.name: self.set_environment(n),
-                         subtitle="active" if env.name == self.environment else "")
+                         subtitle=tr("active") if env.name == self.environment else "")
             for env in self.service.project.environments.values()
         ]
-        entries.append(PaletteEntry("Manage environments…", self.manage_environments))
-        CommandPalette.run(self, entries, "Switch environment…")
+        entries.append(PaletteEntry(tr("Manage environments…"), self.manage_environments))
+        CommandPalette.run(self, entries, tr("Switch environment…"))
 
     # ================================================================ requests & tabs
 
@@ -433,7 +440,7 @@ class MainWindow(QMainWindow):
             return
         found = self.service.find_request(request_id)
         if found is None:
-            self.toast.show_message("That request no longer exists")
+            self.toast.show_message(tr("That request no longer exists"))
             return
         editor = RequestEditor(found[1], self.http, self.variable_context)
         editor.set_font_size(self.ctx.settings.editor_font_size)
@@ -508,7 +515,7 @@ class MainWindow(QMainWindow):
     def format_current(self) -> None:
         editor = self.tabs.current_editor()
         if editor is not None and editor.format_body():
-            self.toast.show_message("JSON formatted", 1200)
+            self.toast.show_message(tr("JSON formatted"), 1200)
 
     def duplicate_current(self) -> None:
         editor = self.tabs.current_editor()
@@ -528,22 +535,22 @@ class MainWindow(QMainWindow):
         self.tabs.set_dirty(request_id, True)
         if self.ctx.settings.autosave:
             self._autosave.trigger()
-            self._set_save_status("Editing…")
+            self._set_save_status(tr("Editing…"))
         else:
-            self._set_save_status("Unsaved changes — Ctrl+S to save", sticky=True)
+            self._set_save_status(tr("Unsaved changes — Ctrl+S to save"), sticky=True)
 
     def save_now(self) -> None:
         if self._dirty:
             self.flush_saves()
         else:
-            self._set_save_status("All changes saved")
+            self._set_save_status(tr("All changes saved"))
 
     def flush_saves(self) -> None:
         if self.service is None or not self._dirty:
             return
         self._autosave.cancel()
         pending, self._dirty = self._dirty, set()
-        self._set_save_status("Saving…", sticky=True)
+        self._set_save_status(tr("Saving…"), sticky=True)
         failures: list[str] = []
         for request_id in pending:
             try:
@@ -553,15 +560,15 @@ class MainWindow(QMainWindow):
                 self._dirty.add(request_id)
                 failures.append(f"{exc.filename or request_id}: {exc.strerror or exc}")
         if failures:
-            self._set_save_status("Save failed", sticky=True)
-            MessageDialog.show_error(self, "Could not save changes", "Your edits are kept in memory. "
-                                     "Check the file permissions and press Ctrl+S to retry.", failures)
+            self._set_save_status(tr("Save failed"), sticky=True)
+            MessageDialog.show_error(self, tr("Could not save changes"), tr("Your edits are kept in memory. "
+                                     "Check the file permissions and press Ctrl+S to retry."), failures)
         else:
-            self._set_save_status("Saved")
+            self._set_save_status(tr("Saved"))
 
     def _set_save_status(self, text: str, sticky: bool = False) -> None:
         self._save_label.setText(text)
-        if sticky or text == "Editing…":
+        if sticky or text == tr("Editing…"):
             self._saved_fade.stop()
         else:
             self._saved_fade.start(1800)
@@ -574,7 +581,7 @@ class MainWindow(QMainWindow):
             operation()
             return True
         except OSError as exc:
-            MessageDialog.show_error(self, "Could not write to disk", f"{exc.filename or ''} {exc.strerror or exc}")
+            MessageDialog.show_error(self, tr("Could not write to disk"), f"{exc.filename or ''} {exc.strerror or exc}")
         except KeyError as exc:
             self.toast.show_message(str(exc).strip("'\""))
         return False
@@ -605,7 +612,7 @@ class MainWindow(QMainWindow):
                 target = self.service.create_collection(result.new_collection_name).id
             request = self.service.create_request(target, result.name, result.method, result.url or None)
         except OSError as exc:
-            MessageDialog.show_error(self, "Could not create request", str(exc))
+            MessageDialog.show_error(self, tr("Could not create request"), str(exc))
             return
         self._refresh_structure()
         self.open_request(request.id, is_new=True)
@@ -620,7 +627,7 @@ class MainWindow(QMainWindow):
         holder = {}
         if self._guard(lambda: holder.setdefault("c", self.service.create_collection(name, base_path))):
             self._refresh_structure()
-            self.toast.show_message(f"Collection “{holder['c'].name}” created")
+            self.toast.show_message(tr("Collection “{name}” created", name=holder["c"].name))
 
     def edit_collection(self, collection_id: str) -> None:
         if self.service is None or (collection := self.service.collection(collection_id)) is None:
@@ -632,7 +639,7 @@ class MainWindow(QMainWindow):
         self.flush_saves()
         if self._guard(lambda: self.service.update_collection(collection_id, name=name, base_path=base_path)):
             self._refresh_structure()
-            self.toast.show_message("Collection saved")
+            self.toast.show_message(tr("Collection saved"))
 
     def duplicate_collection(self, collection_id: str) -> None:
         if self.service is None:
@@ -640,16 +647,20 @@ class MainWindow(QMainWindow):
         self.flush_saves()
         if self._guard(lambda: self.service.duplicate_collection(collection_id)):
             self._refresh_structure()
-            self.toast.show_message("Collection duplicated")
+            self.toast.show_message(tr("Collection duplicated"))
 
     def delete_collection(self, collection_id: str) -> None:
         if self.service is None or (collection := self.service.collection(collection_id)) is None:
             return
         count = len(collection.requests)
-        detail = f" and its {count} request{'s' if count != 1 else ''}" if count else ""
-        if not ConfirmDialog.ask(self, "Delete collection?",
-                                 f"“{collection.name}”{detail} will be permanently removed "
-                                 f"({collection.file_name} is deleted)."):
+        if count:
+            message = trn("“{name}” and its {n} request will be permanently removed ({file} is deleted).",
+                          "“{name}” and its {n} requests will be permanently removed ({file} is deleted).",
+                          count, name=collection.name, file=collection.file_name)
+        else:
+            message = tr("“{name}” will be permanently removed ({file} is deleted).",
+                         name=collection.name, file=collection.file_name)
+        if not ConfirmDialog.ask(self, tr("Delete collection?"), message):
             return
         self.flush_saves()
         request_ids = [r.id for r in collection.requests]
@@ -657,12 +668,12 @@ class MainWindow(QMainWindow):
             for request_id in request_ids:
                 self.tabs.remove(request_id)
             self._refresh_structure()
-            self.toast.show_message("Collection deleted")
+            self.toast.show_message(tr("Collection deleted"))
 
     def rename_request(self, request_id: str) -> None:
         if self.service is None or (found := self.service.find_request(request_id)) is None:
             return
-        name = TextInputDialog.ask(self, "Rename request", "Name", found[1].name, "Rename")
+        name = TextInputDialog.ask(self, tr("Rename request"), tr("Name"), found[1].name, tr("Rename"))
         if not name:
             return
         self.flush_saves()
@@ -678,32 +689,32 @@ class MainWindow(QMainWindow):
         if self._guard(lambda: holder.setdefault("r", self.service.duplicate_request(request_id))):
             self._refresh_structure()
             self.open_request(holder["r"].id)
-            self.toast.show_message("Request duplicated")
+            self.toast.show_message(tr("Request duplicated"))
 
     def move_request(self, request_id: str) -> None:
         if self.service is None or (found := self.service.find_request(request_id)) is None:
             return
         options = [(c.id, c.name) for c in self.service.collections]
-        target = ChoiceDialog.ask(self, "Move request", f"Move “{found[1].name}” to", options, found[0].id, "Move")
+        target = ChoiceDialog.ask(self, tr("Move request"), tr("Move “{name}” to", name=found[1].name), options, found[0].id, tr("Move"))
         if target is None or target == found[0].id:
             return
         self.flush_saves()
         if self._guard(lambda: self.service.move_request(request_id, target)):
             self._refresh_structure()
             self.sidebar.select_request(request_id)
-            self.toast.show_message("Request moved")
+            self.toast.show_message(tr("Request moved"))
 
     def delete_request(self, request_id: str) -> None:
         if self.service is None or (found := self.service.find_request(request_id)) is None:
             return
-        if not ConfirmDialog.ask(self, "Delete request?", f"“{found[1].name}” will be permanently removed."):
+        if not ConfirmDialog.ask(self, tr("Delete request?"), tr("“{name}” will be permanently removed.", name=found[1].name)):
             return
         self._dirty.discard(request_id)
         self.tabs.remove(request_id)
         self.flush_saves()
         if self._guard(lambda: self.service.delete_request(request_id)):
             self._refresh_structure()
-            self.toast.show_message("Request deleted")
+            self.toast.show_message(tr("Request deleted"))
 
     # ================================================================ copy as cURL
 
@@ -713,7 +724,7 @@ class MainWindow(QMainWindow):
         try:
             prepared = self.http.prepare(found[1], self.variable_context())
         except RequestError as error:
-            MessageDialog.show_error(self, "Cannot build cURL command", error.message, [error.hint] if error.hint else [])
+            MessageDialog.show_error(self, tr("Cannot build cURL command"), error.message, [error.hint] if error.hint else [])
             return
         mask = True
         if prepared.contains_secrets:
@@ -722,17 +733,18 @@ class MainWindow(QMainWindow):
                 return
             mask = choice == "masked"
         QGuiApplication.clipboard().setText(build_curl(prepared, mask_secrets=mask))
-        self.toast.show_message("cURL copied" + (" (secrets masked)" if mask and prepared.contains_secrets else ""))
+        self.toast.show_message(tr("cURL copied (secrets masked)") if mask and prepared.contains_secrets
+                                else tr("cURL copied"))
 
     def _ask_curl_secrets(self) -> str | None:
-        dialog = BaseDialog(self, "This request contains credentials", width=440)
+        dialog = BaseDialog(self, tr("This request contains credentials"), width=440)
         dialog.content.addWidget(label(
-            "The command includes an Authorization header or secret variables. Copy it with the values "
-            "masked (safe to share), or include them?", "DialogMessage", wrap=True))
+            tr("The command includes an Authorization header or secret variables. Copy it with the values "
+               "masked (safe to share), or include them?"), "DialogMessage", wrap=True))
         choice: dict[str, str] = {}
-        include = button("Include secrets", on_click=lambda: (choice.setdefault("v", "full"), dialog.accept()))
+        include = button(tr("Include secrets"), on_click=lambda: (choice.setdefault("v", "full"), dialog.accept()))
         dialog.buttons.insertWidget(1, include)
-        dialog.ok_button.setText("Copy masked")
+        dialog.ok_button.setText(tr("Copy masked"))
         dialog.ok_button.clicked.disconnect()
         dialog.ok_button.clicked.connect(lambda: (choice.setdefault("v", "masked"), dialog.accept()))
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -778,6 +790,7 @@ class MainWindow(QMainWindow):
         if updated is None:
             return
         theme_changed = updated.theme != self.theme.preference
+        language_changed = resolve_language(updated.language) != current_language()
         self.ctx.settings = updated
         self.ctx.settings_repo.save(updated)
         self._autosave.set_delay(updated.autosave_delay_ms)
@@ -788,7 +801,20 @@ class MainWindow(QMainWindow):
         if updated.autosave and self._dirty:
             self.flush_saves()
         self._refresh_recent()
-        self.toast.show_message("Settings saved")
+        self.toast.show_message(tr("Settings saved"))
+        if language_changed and ConfirmDialog.ask(
+            self, tr("Restart required"), tr("The new language will be applied after restarting API Client."),
+            tr("Restart now"), danger=False, cancel_text=tr("Later"),
+        ):
+            self.restart()
+
+    def restart(self) -> None:
+        """Relaunch the application (used to apply a new language)."""
+        if not self.close():
+            return
+        arguments = sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv
+        QProcess.startDetached(sys.executable, arguments)
+        QApplication.quit()
 
     def show_command_palette(self) -> None:
         entries: list[PaletteEntry] = []
@@ -798,21 +824,21 @@ class MainWindow(QMainWindow):
                                             subtitle=f"{collection.name}  ·  {request.url}",
                                             method=request.method.value))
             entries += [
-                PaletteEntry("New Request", lambda: self.new_request(None), shortcut="Ctrl+N"),
-                PaletteEntry("New Collection", self.new_collection, shortcut="Ctrl+Shift+N"),
-                PaletteEntry("New Environment", lambda: self.manage_environments(create_new=True)),
-                PaletteEntry("Switch Environment", self.switch_environment_palette, shortcut="Ctrl+E"),
-                PaletteEntry("Manage Environments", self.manage_environments),
-                PaletteEntry("Format JSON", self.format_current, shortcut="Ctrl+Shift+F"),
-                PaletteEntry("Open History", self.show_history, shortcut="Ctrl+H"),
-                PaletteEntry("Project Settings", self.edit_project),
-                PaletteEntry("Reload Project from Disk", self.reload_project),
-                PaletteEntry("Close Project", self.close_project),
+                PaletteEntry(tr("New Request"), lambda: self.new_request(None), shortcut="Ctrl+N"),
+                PaletteEntry(tr("New Collection"), self.new_collection, shortcut="Ctrl+Shift+N"),
+                PaletteEntry(tr("New Environment"), lambda: self.manage_environments(create_new=True)),
+                PaletteEntry(tr("Switch Environment"), self.switch_environment_palette, shortcut="Ctrl+E"),
+                PaletteEntry(tr("Manage Environments"), self.manage_environments),
+                PaletteEntry(tr("Format JSON"), self.format_current, shortcut="Ctrl+Shift+F"),
+                PaletteEntry(tr("Open History"), self.show_history, shortcut="Ctrl+H"),
+                PaletteEntry(tr("Project Settings"), self.edit_project),
+                PaletteEntry(tr("Reload Project from Disk"), self.reload_project),
+                PaletteEntry(tr("Close Project"), self.close_project),
             ]
         entries += [
-            PaletteEntry("Open Project", self.open_project_dialog, shortcut="Ctrl+O"),
-            PaletteEntry("Create Project", lambda: self.create_project_flow(), shortcut="Ctrl+Shift+O"),
-            PaletteEntry("Settings", self.show_settings, shortcut="Ctrl+,"),
+            PaletteEntry(tr("Open Project"), self.open_project_dialog, shortcut="Ctrl+O"),
+            PaletteEntry(tr("Create Project"), lambda: self.create_project_flow(), shortcut="Ctrl+Shift+O"),
+            PaletteEntry(tr("Settings"), self.show_settings, shortcut="Ctrl+,"),
         ]
         CommandPalette.run(self, entries)
 
@@ -829,8 +855,8 @@ class MainWindow(QMainWindow):
         if location.startswith(home):
             location = "~" + location[len(home):]
         self._project_label.setText(
-            f"{location}   ·   {len(collections)} collection{'s' if len(collections) != 1 else ''}"
-            f"   ·   {requests} request{'s' if requests != 1 else ''}"
+            f"{location}   ·   {trn('{n} collection', '{n} collections', len(collections))}"
+            f"   ·   {trn('{n} request', '{n} requests', requests)}"
         )
 
     def _save_ui_state(self) -> None:
@@ -874,7 +900,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         self.flush_saves()
         if self._dirty and not ConfirmDialog.ask(
-            self, "Quit without saving?", "Some changes could not be written to disk.", "Quit anyway"
+            self, tr("Quit without saving?"), tr("Some changes could not be written to disk."), tr("Quit anyway")
         ):
             event.ignore()
             return

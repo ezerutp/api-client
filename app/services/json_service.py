@@ -11,6 +11,7 @@ import json
 import re
 from dataclasses import dataclass
 
+from app.i18n import tr
 from app.services.variable_service import VARIABLE_PATTERN
 
 _PLACEHOLDER_PREFIX = "91827364"
@@ -27,9 +28,16 @@ class JsonValidation:
     @property
     def summary(self) -> str:
         if self.valid:
-            return "Valid JSON"
-        where = f" — line {self.line}" if self.line else ""
-        return f"Invalid JSON{where}: {self.message}"
+            return tr("Valid JSON")
+        if self.line:
+            return tr("Invalid JSON — line {line}: {message}", line=self.line, message=translate_json_error(self.message))
+        return tr("Invalid JSON: {message}", message=translate_json_error(self.message))
+
+
+def translate_json_error(message: str) -> str:
+    """Python's json module reports errors in English; translate the known ones."""
+    head, sep, tail = message.partition(": line")
+    return tr(head) + (sep + tail if sep else "")
 
 
 def _protect(text: str) -> tuple[str, list[str]]:

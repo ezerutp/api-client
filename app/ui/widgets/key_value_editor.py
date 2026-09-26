@@ -11,9 +11,19 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QEvent, QObject, QStringListModel, Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QCompleter, QHBoxLayout, QLabel, QLineEdit, QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget,
+    QCheckBox,
+    QCompleter,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QScrollArea,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
+from app.i18n import tr
 from app.themes.manager import current_theme
 from app.ui import icons
 from app.ui.helpers import apply_icon, icon_button
@@ -53,7 +63,7 @@ class _Row(QWidget):
         self.check = QCheckBox()
         self.check.setChecked(True if item is None else item.enabled)
         self.check.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.check.setToolTip("Enable / disable")
+        self.check.setToolTip(tr("Enable / disable"))
         self.key = QLineEdit(item.key if item else "")
         self.value = QLineEdit(item.value if item else "")
         for field, placeholder in ((self.key, editor.key_placeholder), (self.value, editor.value_placeholder)):
@@ -73,12 +83,12 @@ class _Row(QWidget):
         self.secret.setChecked(bool(item and item.secret))
         self.secret.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.secret.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.secret.setToolTip("Secret: stored in .secrets.json (not committed)")
+        self.secret.setToolTip(tr("Secret: stored in .secrets.json (not committed)"))
         self.secret.setVisible(editor.secret_column)
         self.secret.toggled.connect(self._on_secret_toggled)
         self.value.installEventFilter(self)
 
-        self.delete = icon_button("trash", "Remove", size=14, on_click=lambda: self.remove_requested.emit(self))
+        self.delete = icon_button("trash", tr("Remove"), size=14, on_click=lambda: self.remove_requested.emit(self))
         self.delete.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.delete.setVisible(not editor.fixed_keys)
 
@@ -149,8 +159,8 @@ class KeyValueEditor(QWidget):
     def __init__(
         self,
         *,
-        key_placeholder: str = "Key",
-        value_placeholder: str = "Value",
+        key_placeholder: str = tr("Key"),
+        value_placeholder: str = tr("Value"),
         fixed_keys: bool = False,
         secret_column: bool = False,
         key_completions: list[str] | None = None,

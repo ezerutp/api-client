@@ -5,6 +5,7 @@ import json
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QLabel, QStackedWidget, QVBoxLayout, QWidget
 
+from app.i18n import tr
 from app.models.api_request import BodyType, RequestBody
 from app.services.json_service import format_json, validate_json
 from app.themes.manager import current_theme
@@ -27,8 +28,8 @@ class BodyEditor(QWidget):
         self.type_combo.setFixedWidth(96)
         self.type_combo.currentIndexChanged.connect(self._on_type_changed)
 
-        self.format_button = button("Format", "ghost", icon_name="braces", on_click=self.format)
-        self.format_button.setToolTip("Format JSON (Ctrl+Shift+F)")
+        self.format_button = button(tr("Format"), "ghost", icon_name="braces", on_click=self.format)
+        self.format_button.setToolTip(tr("Format JSON (Ctrl+Shift+F)"))
 
         self.editor = CodeEditor()
         self.editor.setPlaceholderText('{\n  "name": "value"\n}')
@@ -40,8 +41,8 @@ class BodyEditor(QWidget):
         self._validate_later = Debouncer(250, self._validate, self)
 
         empty = QWidget()
-        empty.setLayout(vbox(None, label("This request has no body", "EmptyTitle"),
-                             label("Select JSON or Text above to send a request body.", "EmptyText"), None,
+        empty.setLayout(vbox(None, label(tr("This request has no body"), "EmptyTitle"),
+                             label(tr("Select JSON or Text above to send a request body."), "EmptyText"), None,
                              spacing=6))
         for child in empty.findChildren(QLabel):
             child.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -56,7 +57,7 @@ class BodyEditor(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 8, 0, 0)
         layout.setSpacing(8)
-        layout.addLayout(hbox(label("Content", "FieldLabel"), None, self.type_combo, self.format_button, spacing=6))
+        layout.addLayout(hbox(label(tr("Content"), "FieldLabel"), None, self.type_combo, self.format_button, spacing=6))
         layout.addWidget(self.pages, 1)
 
     # -- public ---------------------------------------------------------------------

@@ -7,9 +7,18 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, QThreadPool, Signal
 from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import (
-    QComboBox, QMenu, QPushButton, QScrollArea, QSplitter, QTabWidget, QToolButton, QVBoxLayout, QWidget,
+    QComboBox,
+    QMenu,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTabWidget,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
+from app.i18n import tr
 from app.models.api_request import ApiRequest, BodyType, HttpMethod, PathParameter, RequestHeader, RequestParameter
 from app.models.api_response import ApiResponse
 from app.network.errors import ErrorKind, RequestError
@@ -97,7 +106,7 @@ class RequestEditor(QWidget):
         self.url_edit.text_changed.connect(self._on_url_changed)
         self.url_edit.submitted.connect(self.send)
 
-        self.send_button = QPushButton("Send")
+        self.send_button = QPushButton(tr("Send"))
         self.send_button.setObjectName("SendButton")
         self.send_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.send_button.setMinimumWidth(92)
@@ -106,14 +115,14 @@ class RequestEditor(QWidget):
         self.send_menu_button = QToolButton()
         self.send_menu_button.setObjectName("SendMenuButton")
         self.send_menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.send_menu_button.setToolTip("More actions")
+        self.send_menu_button.setToolTip(tr("More actions"))
         self.send_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self.send_menu_button)
-        menu.addAction("Copy URL", self.copy_url)
-        menu.addAction("Copy as cURL", lambda: self.copy_curl_requested.emit(self.request.id))
+        menu.addAction(tr("Copy URL"), self.copy_url)
+        menu.addAction(tr("Copy as cURL"), lambda: self.copy_curl_requested.emit(self.request.id))
         menu.addSeparator()
-        menu.addAction("Duplicate request", lambda: self.duplicate_requested.emit(self.request.id))
-        menu.addAction("Format JSON body", self.format_body)
+        menu.addAction(tr("Duplicate request"), lambda: self.duplicate_requested.emit(self.request.id))
+        menu.addAction(tr("Format JSON body"), self.format_body)
         self.send_menu_button.setMenu(menu)
 
         send_group = QWidget()
@@ -124,23 +133,23 @@ class RequestEditor(QWidget):
         self._request_bar.setFixedHeight(40)
 
     def _build_options(self) -> None:
-        self.params_editor = KeyValueEditor(key_placeholder="Key", value_placeholder="Value", scrollable=False)
-        self.path_editor = KeyValueEditor(key_placeholder="Path variable", value_placeholder="Value",
+        self.params_editor = KeyValueEditor(key_placeholder=tr("Key"), value_placeholder=tr("Value"), scrollable=False)
+        self.path_editor = KeyValueEditor(key_placeholder=tr("Path variable"), value_placeholder=tr("Value"),
                                           fixed_keys=True, scrollable=False)
-        self.headers_editor = KeyValueEditor(key_placeholder="Header", value_placeholder="Value",
+        self.headers_editor = KeyValueEditor(key_placeholder=tr("Header"), value_placeholder=tr("Value"),
                                              key_completions=COMMON_HEADERS, value_completions=COMMON_HEADER_VALUES)
         self.auth_editor = AuthEditor()
         self.body_editor = BodyEditor()
 
         self._path_section = QWidget()
-        self._path_section.setLayout(vbox(label("PATH VARIABLES", "SectionLabel"), self.path_editor, spacing=6,
+        self._path_section.setLayout(vbox(label(tr("PATH VARIABLES"), "SectionLabel"), self.path_editor, spacing=6,
                                           margins=(0, 14, 0, 0)))
         self.url_preview = label("", "UrlPreview")
         self.url_preview.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.url_preview.setWordWrap(True)
         params_content = QWidget()
         params_content.setLayout(vbox(
-            label("QUERY PARAMETERS", "SectionLabel"), self.params_editor, self._path_section, 12,
+            label(tr("QUERY PARAMETERS"), "SectionLabel"), self.params_editor, self._path_section, 12,
             self.url_preview, None, spacing=6, margins=(0, 10, 4, 0),
         ))
         params_scroll = QScrollArea()
@@ -154,10 +163,10 @@ class RequestEditor(QWidget):
         self.options = QTabWidget()
         self.options.setProperty("tabStyle", "underline")
         self.options.setDocumentMode(True)
-        self.options.addTab(params_scroll, "Params")
-        self.options.addTab(headers_page, "Headers")
-        self.options.addTab(self.auth_editor, "Auth")
-        self.options.addTab(self.body_editor, "Body")
+        self.options.addTab(params_scroll, tr("Params"))
+        self.options.addTab(headers_page, tr("Headers"))
+        self.options.addTab(self.auth_editor, tr("Auth"))
+        self.options.addTab(self.body_editor, tr("Body"))
 
         self.params_editor.changed.connect(self._on_params_changed)
         self.path_editor.changed.connect(self._on_params_changed)
@@ -254,12 +263,12 @@ class RequestEditor(QWidget):
         def title(base: str, count: int) -> str:
             return f"{base}  {count}" if count else base
 
-        self.options.setTabText(TAB_PARAMS, title("Params", self.params_editor.active_count()
+        self.options.setTabText(TAB_PARAMS, title(tr("Params"), self.params_editor.active_count()
                                                   + len(self.request.path_params)))
-        self.options.setTabText(TAB_HEADERS, title("Headers", self.headers_editor.active_count()))
+        self.options.setTabText(TAB_HEADERS, title(tr("Headers"), self.headers_editor.active_count()))
         auth_type = self.request.auth.type
-        self.options.setTabText(TAB_AUTH, "Auth" if auth_type.value == "none" else "Auth  •")
-        self.options.setTabText(TAB_BODY, "Body" if self.request.body.type is BodyType.NONE else "Body  •")
+        self.options.setTabText(TAB_AUTH, tr("Auth") if auth_type.value == "none" else tr("Auth") + "  •")
+        self.options.setTabText(TAB_BODY, tr("Body") if self.request.body.type is BodyType.NONE else tr("Body") + "  •")
 
     def _update_url_preview(self) -> None:
         try:
@@ -268,7 +277,7 @@ class RequestEditor(QWidget):
             if error.kind is ErrorKind.INVALID_URL and not self.request.url.strip():
                 self.url_preview.setText("")
                 return
-            self.url_preview.setText(f"⚠  {error.message.splitlines()[0]}")
+            self.url_preview.setText("⚠  " + error.message.splitlines()[0])
             self.url_preview.setStyleSheet(f"color: {current_theme().warning};")
             return
         except Exception:  # the preview must never break editing
@@ -315,7 +324,7 @@ class RequestEditor(QWidget):
         self.options.setCurrentIndex(TAB_BODY)
         ok = self.body_editor.format()
         if not ok:
-            self.notify.emit("Body is not valid JSON — nothing to format")
+            self.notify.emit(tr("Body is not valid JSON — nothing to format"))
         return ok
 
     def splitter_sizes(self) -> list[int]:
@@ -364,8 +373,8 @@ class RequestEditor(QWidget):
         worker.cancel()
         self._worker = None
         self._set_sending(False)
-        self.response.show_error(RequestError(ErrorKind.CANCELLED, "Request cancelled",
-                                              "The request was cancelled before a response arrived.", ""))
+        self.response.show_error(RequestError(ErrorKind.CANCELLED, tr("Request cancelled"),
+                                              tr("The request was cancelled before a response arrived."), ""))
 
     def _on_finished(self, worker: RequestWorker, response: ApiResponse) -> None:
         if worker is not self._worker:
@@ -384,7 +393,7 @@ class RequestEditor(QWidget):
         self.finished.emit(self.request.id, worker.prepared, error)
 
     def _set_sending(self, sending: bool) -> None:
-        self.send_button.setText("Cancel" if sending else "Send")
+        self.send_button.setText(tr("Cancel") if sending else tr("Send"))
         set_prop(self.send_button, "sending", sending)
         self.send_menu_button.setEnabled(not sending)
         self.sending_changed.emit(sending)
@@ -395,7 +404,7 @@ class RequestEditor(QWidget):
         except RequestError:
             url = self.request.url
         QGuiApplication.clipboard().setText(url)
-        self.notify.emit("URL copied to clipboard")
+        self.notify.emit(tr("URL copied to clipboard"))
 
     def shutdown(self) -> None:
         if self._worker is not None:
