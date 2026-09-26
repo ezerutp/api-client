@@ -281,7 +281,12 @@ class ProjectService:
 
     def update_project(self, *, name: str, base_url: str) -> None:
         self.project.name = name.strip() or self.project.name
-        self.project.base_url = base_url.strip()
+        old_base_url, new_base_url = self.project.base_url, base_url.strip()
+        self.project.base_url = new_base_url
+        # Environments created with a copy of the default keep following it; custom ones stay as they are.
+        for env in self.project.environments.values():
+            if env.variables.get("base_url") == old_base_url:
+                env.variables["base_url"] = new_base_url
         self._projects.save(self.project)
 
     # -- helpers --------------------------------------------------------------------
