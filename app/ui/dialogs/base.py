@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QDialog, QLabel, QLineEdit, QVBoxLayout, QWidget
 
+from app.i18n import tr
 from app.themes.manager import current_theme
 from app.ui import icons
 from app.ui.helpers import button, hbox, label, set_prop, vbox
@@ -21,8 +22,8 @@ class BaseDialog(QDialog):
         self.title_label = label(title, "DialogTitle")
         self.content = QVBoxLayout()
         self.content.setSpacing(6)
-        self.cancel_button = button("Cancel", on_click=self.reject)
-        self.ok_button = button("OK", "primary", on_click=self._try_accept)
+        self.cancel_button = button(tr("Cancel"), on_click=self.reject)
+        self.ok_button = button(tr("OK"), "primary", on_click=self._try_accept)
         self.ok_button.setDefault(True)
         self.ok_button.setAutoDefault(True)
         self.cancel_button.setAutoDefault(False)
@@ -54,8 +55,11 @@ class BaseDialog(QDialog):
 
 
 class ConfirmDialog(BaseDialog):
-    def __init__(self, parent: QWidget | None, title: str, message: str, confirm_text: str, danger: bool) -> None:
+    def __init__(self, parent: QWidget | None, title: str, message: str, confirm_text: str, danger: bool,
+                 cancel_text: str | None = None) -> None:
         super().__init__(parent, title, width=400)
+        if cancel_text:
+            self.cancel_button.setText(cancel_text)
         text = label(message, "DialogMessage", wrap=True)
         self.content.addWidget(text)
         self.ok_button.setText(confirm_text)
@@ -67,9 +71,10 @@ class ConfirmDialog(BaseDialog):
             self.cancel_button.setFocus()
 
     @staticmethod
-    def ask(parent: QWidget | None, title: str, message: str, confirm_text: str = "Delete",
-            danger: bool = True) -> bool:
-        return ConfirmDialog(parent, title, message, confirm_text, danger).exec() == QDialog.DialogCode.Accepted
+    def ask(parent: QWidget | None, title: str, message: str, confirm_text: str | None = None,
+            danger: bool = True, cancel_text: str | None = None) -> bool:
+        dialog = ConfirmDialog(parent, title, message, confirm_text or tr("Delete"), danger, cancel_text)
+        return dialog.exec() == QDialog.DialogCode.Accepted
 
 
 class MessageDialog(BaseDialog):
@@ -112,8 +117,8 @@ class TextInputDialog(BaseDialog):
         return ok
 
     @staticmethod
-    def ask(parent: QWidget | None, title: str, caption: str, value: str = "", ok_text: str = "Save") -> str | None:
-        dialog = TextInputDialog(parent, title, caption, value, ok_text)
+    def ask(parent: QWidget | None, title: str, caption: str, value: str = "", ok_text: str | None = None) -> str | None:
+        dialog = TextInputDialog(parent, title, caption, value, ok_text or tr("Save"))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             return dialog.field.text().strip()
         return None
@@ -135,7 +140,7 @@ class ChoiceDialog(BaseDialog):
 
     @staticmethod
     def ask(parent: QWidget | None, title: str, caption: str, options: Sequence[tuple[str, str]],
-            current: str | None = None, ok_text: str = "OK") -> str | None:
+            current: str | None = None, ok_text: str = tr("OK")) -> str | None:
         dialog = ChoiceDialog(parent, title, caption, options, current, ok_text)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             return dialog.combo.currentData()

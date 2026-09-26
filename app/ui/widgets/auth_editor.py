@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QLineEdit, QStackedWidget, QToolButton, QVBoxLayout, QWidget
 
+from app.i18n import tr
 from app.models.auth import Authentication, AuthType
 from app.themes.manager import current_theme
 from app.ui import icons
@@ -26,14 +27,14 @@ class AuthEditor(QWidget):
         self.token = QLineEdit()
         self.token.setPlaceholderText("{{token}}")
         self.username = QLineEdit()
-        self.username.setPlaceholderText("Username or {{username}}")
+        self.username.setPlaceholderText(tr("Username or {{username}}"))
         self.password = QLineEdit()
-        self.password.setPlaceholderText("Password or {{password}}")
+        self.password.setPlaceholderText(tr("Password or {{password}}"))
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self._reveal = QToolButton()
         self._reveal.setCheckable(True)
         self._reveal.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._reveal.setToolTip("Show password")
+        self._reveal.setToolTip(tr("Show password"))
         self._reveal.toggled.connect(self._toggle_password)
         for field in (self.token, self.username, self.password):
             field.textEdited.connect(self._emit)
@@ -41,22 +42,22 @@ class AuthEditor(QWidget):
         self.pages = QStackedWidget()
         none_page = QWidget()
         none_page.setLayout(vbox(
-            label("This request does not send authentication.", "Muted"),
-            label("Choose Bearer Token or Basic Auth above to add an Authorization header.", "Hint", wrap=True),
+            label(tr("This request does not send authentication."), "Muted"),
+            label(tr("Choose Bearer Token or Basic Auth above to add an Authorization header."), "Hint", wrap=True),
             None, spacing=4,
         ))
         bearer_page = QWidget()
         bearer_page.setLayout(vbox(
-            label("Token", "FieldLabel"), self.token,
-            label("Sent as  Authorization: Bearer <token>.  Keep real tokens in .secrets.json and "
-                  "reference them as {{token}}.", "Hint", wrap=True),
+            label(tr("Token"), "FieldLabel"), self.token,
+            label(tr("Sent as  Authorization: Bearer <token>.  Keep real tokens in .secrets.json and "
+                     "reference them as {{token}}."), "Hint", wrap=True),
             None, spacing=6,
         ))
         basic_page = QWidget()
         basic_page.setLayout(vbox(
-            label("Username", "FieldLabel"), self.username, 4,
-            label("Password", "FieldLabel"), hbox(self.password, self._reveal, spacing=4),
-            label("Sent as  Authorization: Basic base64(username:password).", "Hint", wrap=True),
+            label(tr("Username"), "FieldLabel"), self.username, 4,
+            label(tr("Password"), "FieldLabel"), hbox(self.password, self._reveal, spacing=4),
+            label(tr("Sent as  Authorization: Basic base64(username:password)."), "Hint", wrap=True),
             None, spacing=6,
         ))
         for page in (none_page, bearer_page, basic_page):
@@ -64,7 +65,7 @@ class AuthEditor(QWidget):
 
         form = QWidget()
         form.setMaximumWidth(560)
-        form.setLayout(vbox(hbox(label("Type", "FieldLabel"), self.type_combo, None, spacing=12), 8, self.pages, spacing=4))
+        form.setLayout(vbox(hbox(label(tr("Type"), "FieldLabel"), self.type_combo, None, spacing=12), 8, self.pages, spacing=4))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 12, 4, 4)
         layout.addWidget(form)

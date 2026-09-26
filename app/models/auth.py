@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from app.i18n import tr
 from app.models._common import as_dict, as_str
 
 
@@ -21,7 +22,7 @@ class AuthType(StrEnum):
 
     @property
     def label(self) -> str:
-        return {"none": "No Auth", "bearer": "Bearer Token", "basic": "Basic Auth"}[self.value]
+        return {"none": tr("No Auth"), "bearer": tr("Bearer Token"), "basic": tr("Basic Auth")}[self.value]
 
 
 _KNOWN_KEYS = {"type", "token", "username", "password"}

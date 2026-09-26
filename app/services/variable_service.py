@@ -11,6 +11,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from app.i18n import tr
 from app.models.project import Project
 from app.repositories.secrets_repository import Secrets
 
@@ -26,16 +27,20 @@ class MissingVariablesError(VariableError):
     def __init__(self, names: Iterable[str], environment: str | None = None) -> None:
         self.names = sorted(set(names))
         self.environment = environment
-        joined = ", ".join(f"{{{{{n}}}}}" for n in self.names)
-        scope = f' in environment "{environment}"' if environment else ""
-        noun = "Variable" if len(self.names) == 1 else "Variables"
-        super().__init__(f"{noun} not defined{scope}: {joined}")
+        joined = ", ".join("{{" + n + "}}" for n in self.names)
+        many = len(self.names) != 1
+        if environment:
+            template = tr("Variables not defined in environment \"{env}\": {names}") if many else \
+                tr("Variable not defined in environment \"{env}\": {names}")
+        else:
+            template = tr("Variables not defined: {names}") if many else tr("Variable not defined: {names}")
+        super().__init__(template.format(env=environment, names=joined))
 
 
 class CircularVariableError(VariableError):
     def __init__(self, chain: list[str]) -> None:
         self.chain = chain
-        super().__init__("Circular variable reference: " + " → ".join(chain))
+        super().__init__(tr("Circular variable reference: {chain}", chain=" → ".join(chain)))
 
 
 @dataclass(frozen=True)

@@ -29,6 +29,8 @@ stored **inside your repository** so the whole team shares them through Git.
 - **Command palette** (Ctrl+K) to jump to any request or action.
 - **Copy as cURL**, which warns you and masks secrets when the request carries credentials.
 - **Dark theme** by default, plus Light and System.
+- **English and Spanish interface**: follows the system language by default, and you can change it in
+  Settings → Appearance.
 - **Readable errors** for connection refused, timeouts, DNS, SSL, invalid URLs, missing variables and corrupt
   files. A broken JSON file is skipped and **never overwritten**.
 

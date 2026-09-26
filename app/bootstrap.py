@@ -5,13 +5,17 @@ from __future__ import annotations
 import logging
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QLibraryInfo, QLocale, Qt, QTranslator
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from app import APP_ID, APP_NAME, APP_VERSION
+from app.i18n import set_language
 from app.repositories import (
-    HistoryRepository, RecentProjectsRepository, SettingsRepository, UiStateRepository,
+    HistoryRepository,
+    RecentProjectsRepository,
+    SettingsRepository,
+    UiStateRepository,
 )
 from app.storage.database import Database
 from app.storage.paths import user_data_dir
@@ -29,6 +33,19 @@ def _app_icon() -> QIcon:
     for size in (16, 32, 64, 128):
         result.addPixmap(icons.pixmap("box", DARK.accent, size, 2.0))
     return result
+
+
+def _install_translations(app: QApplication, language: str) -> None:
+    """Our strings use app.i18n; Qt's own widgets (context menus, file dialogs) use Qt's catalogs."""
+    QLocale.setDefault(QLocale(language))
+    if language == "en":
+        return
+    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    for catalog in ("qtbase", "qt"):
+        translator = QTranslator(app)
+        if translator.load(f"{catalog}_{language}", folder):
+            app.installTranslator(translator)
+            break
 
 
 def run(argv: list[str] | None = None) -> int:
@@ -52,6 +69,7 @@ def run(argv: list[str] | None = None) -> int:
     db = Database(data_dir / "api-client.db")
     settings_repo = SettingsRepository(db)
     settings = settings_repo.load()
+    _install_translations(app, set_language(settings.language))
     ThemeManager.instance().apply(settings.theme, editor_font_size=settings.editor_font_size)
 
     from app.ui.main_window import AppContext, MainWindow

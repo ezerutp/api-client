@@ -7,6 +7,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from app import APP_NAME, APP_VERSION
+from app.i18n import tr
 from app.repositories.recent_projects_repository import RecentProject
 from app.themes.manager import current_theme
 from app.ui import icons
@@ -28,10 +29,10 @@ class _RecentCard(QFrame):
         exists = Path(project.path).exists()
         self._icon = QLabel()
         name = label(project.name, "RecentName")
-        path = label(project.path if exists else f"{project.path}  (missing)", "RecentPath")
+        path = label(project.path if exists else tr("{path}  (missing)", path=project.path), "RecentPath")
         path.setToolTip(project.path)
         when = label(format_relative_time(project.last_opened), "RecentTime")
-        self._remove = icon_button("close", "Remove from recent projects", size=14,
+        self._remove = icon_button("close", tr("Remove from recent projects"), size=14,
                                    on_click=lambda: self.remove_clicked.emit(self._path))
         self._remove.setVisible(False)
         self.setLayout(hbox(self._icon, 4, vbox(name, path, spacing=1), None, when, self._remove,
@@ -66,24 +67,25 @@ class HomeScreen(QWidget):
         self._cards: list[_RecentCard] = []
         self.logo = LogoBadge(52, 30)
         title = label(APP_NAME, "HomeTitle")
-        subtitle = label("Test your APIs without the clutter.", "HomeSubtitle")
-        self._open = button("Open Project", "primary", icon_name="folder-open", on_click=self.open_project.emit)
-        self._create = button("Create Project", icon_name="plus", on_click=self.create_project.emit)
+        subtitle = label(tr("Test your APIs without the clutter."), "HomeSubtitle")
+        self._open = button(tr("Open Project"), "primary", icon_name="folder-open", on_click=self.open_project.emit)
+        self._create = button(tr("Create Project"), icon_name="plus", on_click=self.create_project.emit)
         for b in (self._open, self._create):
             b.setMinimumHeight(38)
             b.setMinimumWidth(170)
 
         self._recent_list = QVBoxLayout()
         self._recent_list.setSpacing(2)
-        self._recent_empty = label("No recent projects yet. Open a backend folder to get started.", "Faint")
+        self._recent_empty = label(tr("No recent projects yet. Open a backend folder to get started."), "Faint")
 
         column = QWidget()
         column.setMaximumWidth(600)
         column.setMinimumWidth(420)
         column_layout = vbox(
             self.logo, 14, title, subtitle, 26, hbox(None, self._open, self._create, None, spacing=10), 40,
-            label("RECENT PROJECTS", "SectionLabel"), 4, self._recent_list, self._recent_empty, 28,
-            label(f"Ctrl+O  open project   ·   Ctrl+Shift+O  create project   ·   v{APP_VERSION}", "Hint"),
+            label(tr("RECENT PROJECTS"), "SectionLabel"), 4, self._recent_list, self._recent_empty, 28,
+            label(tr("Ctrl+O  open project   ·   Ctrl+Shift+O  create project   ·   v{version}", version=APP_VERSION),
+                  "Hint"),
             spacing=4,
         )
         for widget in (self.logo, title, subtitle):

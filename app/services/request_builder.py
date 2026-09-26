@@ -17,10 +17,12 @@ import re
 from dataclasses import dataclass, field
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
+from app.i18n import tr
 from app.models.api_request import ApiRequest, BodyType, KeyValue
 from app.models.auth import AuthType
 from app.network.errors import ErrorKind, RequestError
 from app.services.auth_strategies import AuthConfigurationError, strategy_for
+from app.services.json_service import translate_json_error
 from app.services.variable_service import (
     CircularVariableError,
     MissingVariablesError,
@@ -105,8 +107,8 @@ class RequestBuilder:
         except MissingVariablesError as exc:  # pragma: no cover - guarded by _check_variables
             raise self._missing_error(exc, request.url) from None
         except CircularVariableError as exc:
-            raise RequestError(ErrorKind.MISSING_VARIABLE, "Circular variable", str(exc),
-                               "Make sure variables do not reference each other in a loop.", request.url) from None
+            raise RequestError(ErrorKind.MISSING_VARIABLE, tr("Circular variable"), str(exc),
+                               tr("Make sure variables do not reference each other in a loop."), request.url) from None
 
     def build_url(self, request: ApiRequest) -> str:
         """Final URL only; raises ``RequestError`` if it cannot be built."""
@@ -118,7 +120,7 @@ class RequestBuilder:
         try:
             return self._build_url(request)
         except CircularVariableError as exc:
-            raise RequestError(ErrorKind.MISSING_VARIABLE, "Circular variable", str(exc), "", request.url) from None
+            raise RequestError(ErrorKind.MISSING_VARIABLE, tr("Circular variable"), str(exc), "", request.url) from None
 
     # -- internals -----------------------------------------------------------------
 
@@ -138,11 +140,12 @@ class RequestBuilder:
             raise self._missing_error(MissingVariablesError(missing, self.context.environment), request.url)
 
     def _missing_error(self, exc: MissingVariablesError, url: str) -> RequestError:
-        env = f'the "{exc.environment}" environment' if exc.environment else "the current environment"
-        return RequestError(
-            ErrorKind.MISSING_VARIABLE, "Missing variable", str(exc),
-            f"Define it in {env} (Environments) or in api-client/.secrets.json.", url,
-        )
+        if exc.environment:
+            hint = tr("Define it in the \"{env}\" environment (Environments) or in api-client/.secrets.json.",
+                      env=exc.environment)
+        else:
+            hint = tr("Define it in the current environment (Environments) or in api-client/.secrets.json.")
+        return RequestError(ErrorKind.MISSING_VARIABLE, tr("Missing variable"), str(exc), hint, url)
 
     def _build(self, request: ApiRequest) -> PreparedRequest:
         url = self._build_url(request)
@@ -155,7 +158,7 @@ class RequestBuilder:
         try:
             auth_headers = strategy.headers(request.auth, resolve)
         except AuthConfigurationError as exc:
-            raise RequestError(ErrorKind.INVALID_REQUEST, "Authentication incomplete", str(exc), "", url) from None
+            raise RequestError(ErrorKind.INVALID_REQUEST, tr("Authentication incomplete"), str(exc), "", url) from None
         auth_names = {k.lower() for k, _ in auth_headers}
         headers = [h for h in headers if h[0].lower() not in auth_names] + auth_headers
 
@@ -171,19 +174,19 @@ class RequestBuilder:
         resolve = self.resolver.resolve
         raw_url = resolve(request.url).strip()
         if not raw_url:
-            raise RequestError(ErrorKind.INVALID_URL, "URL is empty", "Enter the URL of the endpoint to call.",
-                               "Example: {{base_url}}/api/productos")
+            raise RequestError(ErrorKind.INVALID_URL, tr("URL is empty"), tr("Enter the URL of the endpoint to call."),
+                               tr("Example: {{base_url}}/api/productos"))
         url = ensure_scheme(raw_url)
         try:
             parts = urlsplit(url)
         except ValueError as exc:
-            raise RequestError(ErrorKind.INVALID_URL, "Invalid URL", f"{url}\n{exc}", "", url) from None
+            raise RequestError(ErrorKind.INVALID_URL, tr("Invalid URL"), f"{url}\n{exc}", "", url) from None
         if parts.scheme.lower() not in ("http", "https"):
-            raise RequestError(ErrorKind.INVALID_URL, "Unsupported URL scheme",
-                               f'"{parts.scheme}" is not supported. Use http:// or https://.', "", url)
+            raise RequestError(ErrorKind.INVALID_URL, tr("Unsupported URL scheme"),
+                               tr('"{scheme}" is not supported. Use http:// or https://.', scheme=parts.scheme), "", url)
         if not parts.netloc:
-            raise RequestError(ErrorKind.INVALID_URL, "Invalid URL", f"The URL has no host:\n{url}",
-                               "Example: http://localhost:8080/api/productos", url)
+            raise RequestError(ErrorKind.INVALID_URL, tr("Invalid URL"), tr("The URL has no host:\n{url}", url=url),
+                               tr("Example: http://localhost:8080/api/productos"), url)
 
         path = self._substitute_path_params(parts.path, request, url)
         query_pairs = [(resolve(p.key), resolve(p.value)) for p in _enabled(request.params)]
@@ -199,9 +202,9 @@ class RequestBuilder:
             param = values.get(name)
             if param is None or not param.enabled or not param.value.strip():
                 raise RequestError(
-                    ErrorKind.INVALID_REQUEST, "Missing path parameter",
-                    f"The path parameter {{{name}}} has no value.",
-                    "Fill it in the Params tab under Path Variables.", url,
+                    ErrorKind.INVALID_REQUEST, tr("Missing path parameter"),
+                    tr("The path parameter {param} has no value.", param="{" + name + "}"),
+                    tr("Fill it in the Params tab under Path Variables."), url,
                 )
             return quote(self.resolver.resolve(param.value).strip(), safe="")
 
@@ -217,8 +220,9 @@ class RequestBuilder:
                 json.loads(content)
             except json.JSONDecodeError as exc:
                 raise RequestError(
-                    ErrorKind.INVALID_JSON, "Invalid JSON body",
-                    f"Line {exc.lineno}, column {exc.colno}: {exc.msg}",
-                    "Fix the body before sending (Ctrl+Shift+F formats valid JSON).", url, line=exc.lineno,
+                    ErrorKind.INVALID_JSON, tr("Invalid JSON body"),
+                    tr("Line {line}, column {column}: {message}", line=exc.lineno, column=exc.colno,
+                       message=translate_json_error(exc.msg)),
+                    tr("Fix the body before sending (Ctrl+Shift+F formats valid JSON)."), url, line=exc.lineno,
                 ) from None
         return content.encode("utf-8")

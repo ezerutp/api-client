@@ -9,8 +9,8 @@ from collections.abc import Callable
 
 import httpx
 
-from app.models.api_response import ApiResponse
 from app.models.api_request import ApiRequest
+from app.models.api_response import ApiResponse
 from app.models.settings import NetworkSettings
 from app.network.errors import ErrorKind, RequestError, map_exception
 from app.services.request_builder import PreparedRequest, RequestBuilder

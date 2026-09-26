@@ -10,6 +10,7 @@ import base64
 from collections.abc import Callable
 from typing import Protocol
 
+from app.i18n import tr
 from app.models.auth import Authentication, AuthType
 
 
@@ -35,7 +36,7 @@ class BearerAuthStrategy:
     def headers(self, auth: Authentication, resolve: Callable[[str], str]) -> list[tuple[str, str]]:
         token = resolve(auth.token).strip()
         if not token:
-            raise AuthConfigurationError("Bearer token is empty. Set it in the Auth tab or disable authentication.")
+            raise AuthConfigurationError(tr("Bearer token is empty. Set it in the Auth tab or disable authentication."))
         return [("Authorization", f"Bearer {token}")]
 
     def secret_values(self, auth: Authentication, resolve: Callable[[str], str]) -> set[str]:
@@ -46,7 +47,7 @@ class BasicAuthStrategy:
     def headers(self, auth: Authentication, resolve: Callable[[str], str]) -> list[tuple[str, str]]:
         username = resolve(auth.username)
         if not username:
-            raise AuthConfigurationError("Basic Auth username is empty.")
+            raise AuthConfigurationError(tr("Basic Auth username is empty."))
         credentials = f"{username}:{resolve(auth.password)}".encode()
         return [("Authorization", "Basic " + base64.b64encode(credentials).decode("ascii"))]
 
