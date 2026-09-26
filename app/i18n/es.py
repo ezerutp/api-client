@@ -471,6 +471,8 @@ MESSAGES: dict[str, str] = {
     "Collapse all": "Contraer todo",
     "Expand all": "Expandir todo",
     "Copy value as JSON": "Copiar el valor como JSON",
+    "Copy selected value as JSON": "Copiar el valor seleccionado como JSON",
+    "Value copied to clipboard": "Valor copiado al portapapeles",
     "Copy value": "Copiar valor",
     "Copy key": "Copiar clave",
     "Copy path": "Copiar ruta",
