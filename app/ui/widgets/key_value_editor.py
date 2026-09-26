@@ -84,13 +84,11 @@ class _Row(QWidget):
         self.secret.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.secret.setCursor(Qt.CursorShape.PointingHandCursor)
         self.secret.setToolTip(tr("Secret: stored in .secrets.json (not committed)"))
-        self.secret.setVisible(editor.secret_column)
         self.secret.toggled.connect(self._on_secret_toggled)
         self.value.installEventFilter(self)
 
         self.delete = icon_button("trash", tr("Remove"), size=14, on_click=lambda: self.remove_requested.emit(self))
         self.delete.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.delete.setVisible(not editor.fixed_keys)
 
         for widget in (self.check, self.delete, self.secret):
             policy = widget.sizePolicy()
@@ -104,6 +102,9 @@ class _Row(QWidget):
         layout.addWidget(self.value, 3)
         layout.addWidget(self.secret)
         layout.addWidget(self.delete)
+        # Toggle visibility only once parented: showing a parentless widget opens it as its own window.
+        self.secret.setVisible(editor.secret_column)
+        self.delete.setVisible(not editor.fixed_keys)
         self._refresh_secret()
         self.refresh_placeholder_state()
 
