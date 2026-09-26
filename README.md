@@ -39,7 +39,25 @@ stored **inside your repository** so the whole team shares them through Git.
 
 Dependencies: `PySide6` (UI) and `httpx` (HTTP). Nothing else at runtime.
 
-## Installation and running
+## Quick install (Linux)
+
+```bash
+git clone https://github.com/ezerutp/api-client.git
+cd api-client
+./install.sh
+```
+
+The script:
+
+1. Runs `git pull` to get the latest version. It skips the pull if you have local changes.
+2. Finds Python 3.12+ and creates or updates `.venv` with the dependencies.
+3. Installs the `api-client` command in `~/.local/bin`, the icon, and an **API Client** entry in your
+   applications menu.
+
+Run `./install.sh` again at any time to update. `./install.sh --uninstall` removes the launcher; your
+projects and settings are kept. The script never uses sudo or writes outside your home folder.
+
+## Manual installation and running
 
 ### Linux / macOS
 
