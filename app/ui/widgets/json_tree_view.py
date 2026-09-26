@@ -84,6 +84,7 @@ class JsonTreeView(QFrame):
 
     path_selected = Signal(object)   # Path; single click or arrow keys
     path_activated = Signal(object)  # Path; double click (the listener may move the focus away)
+    save_variable_requested = Signal(object, object)  # Path, value; only when enabled (response viewer)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -94,6 +95,7 @@ class JsonTreeView(QFrame):
         self._badges: dict[str, QIcon] = {}
         self._items: dict[Path, QTreeWidgetItem] = {}
         self._quiet = False  # True while selecting programmatically: no path_selected echo
+        self.can_save_variables = False
 
         self.expand_button = icon_button("chevrons-down-up", tr("Collapse all"), on_click=self.toggle_expand_all, size=14)
         self.title = label(tr("Object"), "ObjectViewTitle")
@@ -324,6 +326,9 @@ class JsonTreeView(QFrame):
         if path:
             menu.addAction(tr("Copy key"), lambda: clipboard.setText(str(path[-1])))
             menu.addAction(tr("Copy path"), lambda: clipboard.setText(format_path(path)))
+        if self.can_save_variables:
+            menu.addSeparator()
+            menu.addAction(tr("Save as variable…"), lambda: self.save_variable_requested.emit(tuple(path), value))
         menu.exec(self.tree.viewport().mapToGlobal(pos))
 
 

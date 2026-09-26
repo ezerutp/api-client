@@ -272,6 +272,39 @@ class ProjectService:
         self._projects.ensure_gitignore()
         self._refresh_secret_registry()
 
+    def set_variable(self, environment: str | None, name: str, value: str, *, secret: bool = False) -> None:
+        """Create or replace one variable. ``environment=None`` means the globals.
+
+        A variable lives in exactly one place per scope: saving it as secret removes the plain
+        copy (and the other way round), so the stored value is the one that gets used.
+        """
+        if environment is not None and environment not in self.project.environments:
+            raise KeyError(f"Unknown environment: {environment}")
+        if environment is None:
+            plain = self.project.variables
+            secrets = self.secrets.globals
+        else:
+            plain = self.project.environments[environment].variables
+            secrets = self.secrets.by_environment.setdefault(environment, {})
+        if secret:
+            plain.pop(name, None)
+            if environment is None and name == "base_url":
+                self.project.base_url = ""
+            secrets[name] = value
+        else:
+            secrets.pop(name, None)
+            if environment is None and name == "base_url":
+                self.project.base_url = value
+            else:
+                plain[name] = value
+        if environment is not None and not secrets:
+            self.secrets.by_environment.pop(environment, None)
+        self._projects.save(self.project)
+        self._secrets_repo.save(self.secrets)
+        if secret:
+            self._projects.ensure_gitignore()
+        self._refresh_secret_registry()
+
     def add_environment(self, name: str, base_url: str = "") -> str:
         name = unique_slug(name, set(self.project.environments), fallback="environment")
         variables = {"base_url": base_url} if base_url else {}

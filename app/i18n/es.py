@@ -492,6 +492,22 @@ MESSAGES: dict[str, str] = {
     "Copy value": "Copiar valor",
     "Copy key": "Copiar clave",
     "Copy path": "Copiar ruta",
+    "Save as variable…": "Guardar como variable…",
+    # -- Save as variable -------------------------------------------------------------
+    "Save as variable": "Guardar como variable",
+    "Variable name": "Nombre de la variable",
+    "Save in": "Guardar en",
+    "Globals (every environment)": "Globales (todos los entornos)",
+    "Secret — stored in api-client/.secrets.json, never committed":
+        "Secreta — se guarda en api-client/.secrets.json y nunca se sube a Git",
+    "Value: {value}": "Valor: {value}",
+    "(empty)": "(vacío)",
+    "{var} already exists here; its value will be replaced.": "{var} ya existe aquí; se reemplazará su valor.",
+    "The active environment also defines {var} and its value takes precedence.":
+        "El entorno activo también define {var} y su valor tiene prioridad.",
+    "Use letters, numbers, _ . or -, starting with a letter or _.":
+        "Usa letras, números, _ . o -, empezando con una letra o _.",
+    "Saved {var} in {scope}": "{var} guardada en {scope}",
     "Nothing to show yet": "Aún no hay nada que mostrar",
     "Write valid JSON to see its structure": "Escribe un JSON válido para ver su estructura",
     "Invalid JSON — showing the last valid version; navigation is paused":

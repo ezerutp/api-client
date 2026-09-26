@@ -35,7 +35,7 @@ from app.services.curl_service import base_url_for, build_curl
 from app.services.http_client_service import HttpClientService
 from app.services.project_service import ProjectService, find_api_dir
 from app.services.request_builder import PreparedRequest
-from app.services.variable_service import VariableContext
+from app.services.variable_service import VariableContext, suggest_variable_name, variable_text
 from app.storage.database import Database
 from app.themes.manager import ThemeManager
 from app.ui.dialogs.base import BaseDialog, ChoiceDialog, ConfirmDialog, MessageDialog, TextInputDialog
@@ -45,6 +45,7 @@ from app.ui.dialogs.history_dialog import HistoryDialog
 from app.ui.dialogs.project_dialogs import CreateProjectDialog, ProjectSettingsDialog
 from app.ui.dialogs.request_dialogs import CollectionDialog, CurlImportDialog, NewRequestDialog
 from app.ui.dialogs.settings_dialog import SettingsDialog
+from app.ui.dialogs.variable_dialogs import SaveVariableDialog
 from app.ui.helpers import Debouncer, button, label
 from app.ui.widgets.empty_state import EditorEmptyState
 from app.ui.widgets.home_screen import HomeScreen
@@ -421,6 +422,23 @@ class MainWindow(QMainWindow):
         self._ui_state_saver.trigger()
         self.toast.show_message(tr("Environments saved"))
 
+    def save_response_variable(self, path: tuple, value: object) -> None:
+        """Response "Object" tab → right click → Save as variable…"""
+        if self.service is None:
+            return
+        text = variable_text(value)
+        result = SaveVariableDialog.ask(self, self.service.project, self.service.secrets, self.environment,
+                                        suggest_variable_name(path), text)
+        if result is None:
+            return
+        if not self._guard(lambda: self.service.set_variable(result.environment, result.name, text,
+                                                             secret=result.secret)):
+            return
+        self._broadcast_context()
+        scope = (self.service.project.environments[result.environment].display_name
+                 if result.environment else tr("Globals"))
+        self.toast.show_message(tr("Saved {var} in {scope}", var="{{" + result.name + "}}", scope=scope))
+
     def switch_environment_palette(self) -> None:
         if self.service is None:
             return
@@ -451,6 +469,7 @@ class MainWindow(QMainWindow):
         editor.duplicate_requested.connect(self.duplicate_request)
         editor.copy_curl_requested.connect(self.copy_curl)
         editor.notify.connect(self.toast.show_message)
+        editor.save_variable_requested.connect(self.save_response_variable)
         editor.splitter_moved.connect(self._on_editor_split_moved)
         editor.set_object_view_enabled(bool(self.ctx.settings_repo.get(_OBJECT_VIEW_KEY, False)))
         editor.object_view_toggled.connect(self._on_object_view_toggled)
