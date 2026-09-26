@@ -58,6 +58,7 @@ log = logging.getLogger(__name__)
 
 _GEOMETRY_KEY = "window.geometry"
 _SPLIT_KEY = "editor.split"
+_OBJECT_VIEW_KEY = "editor.object_view"
 
 
 @dataclass
@@ -450,6 +451,8 @@ class MainWindow(QMainWindow):
         editor.copy_curl_requested.connect(self.copy_curl)
         editor.notify.connect(self.toast.show_message)
         editor.splitter_moved.connect(self._on_editor_split_moved)
+        editor.set_object_view_enabled(bool(self.ctx.settings_repo.get(_OBJECT_VIEW_KEY, False)))
+        editor.object_view_toggled.connect(self._on_object_view_toggled)
         if self._editor_split:
             editor.set_splitter_sizes(self._editor_split)
         else:
@@ -474,6 +477,11 @@ class MainWindow(QMainWindow):
                 editor.set_splitter_sizes(sizes)
         self.ctx.settings_repo.set(_SPLIT_KEY, sizes)
         self._ui_state_saver.trigger()
+
+    def _on_object_view_toggled(self, enabled: bool) -> None:
+        for editor in self.tabs.editors():
+            editor.set_object_view_enabled(enabled)
+        self.ctx.settings_repo.set(_OBJECT_VIEW_KEY, enabled)
 
     def _on_current_editor_changed(self, editor: RequestEditor | None) -> None:
         if editor is not None:

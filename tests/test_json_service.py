@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.json_service import format_json, validate_json
+from app.services.json_service import JsonVariable, format_json, parse_json, validate_json
 
 
 def test_valid_json():
@@ -25,3 +25,15 @@ def test_format_invalid_raises():
 
 def test_unicode_is_preserved():
     assert format_json('{"nombre":"Cañón"}') == '{\n  "nombre": "Cañón"\n}'
+
+
+def test_parse_keeps_variables():
+    parsed = parse_json('{"id": {{product_id}}, "auth": "Bearer {{token}}", "{{k}}": [1, true, null]}')
+    assert parsed == {"id": "{{product_id}}", "auth": "Bearer {{token}}", "{{k}}": [1, True, None]}
+    assert isinstance(parsed["id"], JsonVariable)
+    assert not isinstance(parsed["auth"], JsonVariable)
+
+
+def test_parse_invalid_raises():
+    with pytest.raises(ValueError):
+        parse_json('{"a": }')

@@ -434,6 +434,35 @@ QPlainTextEdit#CodeEditor { font-size: ${editor_font_size}; }
 QPlainTextEdit#CodeEditor:focus { border-color: ${border_strong}; }
 QPlainTextEdit#CodeEditor[error="true"] { border-color: ${danger}; }
 
+/* Object view (JSON tree next to the body editor) */
+QSplitter#ObjectSplitter::handle { background: transparent; }
+QSplitter#ObjectSplitter::handle:hover { background: transparent; }
+#ObjectView {
+    background: ${bg_panel};
+    border: 1px solid ${border};
+    border-radius: 6px;
+}
+#ObjectViewHeader { border-bottom: 1px solid ${border}; }
+#ObjectViewTitle { font-weight: 600; }
+#ObjectViewMessage { color: ${text_faint}; font-size: 12px; }
+#ObjectViewStatus { color: ${warning}; font-size: 12px; padding: 4px 10px; border-bottom: 1px solid ${border}; }
+QTreeWidget#ObjectTree {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 2px 4px;
+}
+QTreeWidget#ObjectTree::item {
+    padding: 3px 4px;
+    border-radius: 0;
+    min-height: 22px;
+    border-bottom: 1px solid ${border};
+}
+QTreeWidget#ObjectTree::item:selected { background: ${bg_selected}; }
+QTreeWidget#ObjectTree::branch { border-bottom: 1px solid ${border}; }
+QTreeWidget#ObjectTree::branch:has-children:closed { image: url(${icon_chevron_right}); }
+QTreeWidget#ObjectTree::branch:has-children:open { image: url(${icon_chevron}); }
+
 QTextBrowser {
     background: ${bg_panel};
     border: 1px solid ${border};
