@@ -27,10 +27,12 @@ from app.ui import icons
 from app.ui.helpers import apply_icon, button, hbox, icon_button, label, vbox
 from app.ui.widgets.code_editor import CodeEditor
 from app.ui.widgets.json_highlighter import JsonHighlighter
+from app.ui.widgets.json_tree_view import JsonTreeView
 from app.utils.formatting import format_duration, format_size
 
 _HIGHLIGHT_LIMIT = 1_500_000  # characters; bigger bodies are shown without colors
 _DISPLAY_LIMIT = 8_000_000
+_BODY_TAB, _OBJECT_TAB = 0, 1
 
 
 class _FindBar(QFrame):
@@ -94,6 +96,8 @@ class ResponseViewer(QWidget):
         super().__init__(parent)
         self.setObjectName("ResponsePanel")
         self._response: ApiResponse | None = None
+        self._prefer_object = False  # the user picked the object tab; reopen it for the next JSON response
+        self._switching_tab = False
         self._started_at = 0.0
         self._elapsed_timer = QTimer(self)
         self._elapsed_timer.setInterval(100)
@@ -178,6 +182,8 @@ class ResponseViewer(QWidget):
         self._body_stack.addWidget(body_editor_page)
         self._body_stack.addWidget(self._centered(self._body_message))
 
+        self.object_view = JsonTreeView()
+
         self.headers_view = QTextBrowser()
         self.headers_view.setOpenLinks(False)
         self.raw_view = CodeEditor(read_only=True)
@@ -185,12 +191,14 @@ class ResponseViewer(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setProperty("tabStyle", "underline")
         self.tabs.setDocumentMode(True)
-        for widget, title in ((self._body_stack, tr("Body")), (self.headers_view, tr("Headers")), (self.raw_view, tr("Raw"))):
+        for widget, title in ((self._body_stack, tr("Body")), (self.object_view, tr("Object")),
+                              (self.headers_view, tr("Headers")), (self.raw_view, tr("Raw"))):
             holder = QWidget()
             holder.setLayout(vbox(widget, margins=(0, 8, 0, 0)))
             self.tabs.addTab(holder, title)
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
-        self._copy_button = button(tr("Copy"), "ghost", icon_name="copy", on_click=self.copy_body)
+        self._copy_button = button(tr("Copy"), "ghost", icon_name="copy", on_click=self.copy_current)
         self._copy_button.setToolTip(tr("Copy response body"))
         self._wrap_button = icon_button("wrap", tr("Toggle word wrap"), size=15)
         self._wrap_button.setCheckable(True)
@@ -260,6 +268,7 @@ class ResponseViewer(QWidget):
         self._size_label.setToolTip(tr("Body: {size}\nHeaders included in total", size=format_size(len(response.body))))
         self._truncated.setText(tr("Body truncated (over 50 MB)") if response.truncated else "")
         self._render_body(response)
+        self._render_object(response)
         self._render_headers(response)
         raw = response.raw_text() if response.is_text else response.raw_text().split("\n\n")[0] + "\n\n<binary body>"
         self.raw_view.setPlainText(raw[:_DISPLAY_LIMIT])
@@ -290,6 +299,22 @@ class ResponseViewer(QWidget):
             self._highlighter.setDocument(self.body_view.document())
         self._body_stack.setCurrentIndex(0)
         self._copy_button.setEnabled(True)
+
+    def _render_object(self, response: ApiResponse) -> None:
+        """The object tab exists only for JSON bodies; it reopens if the user was using it."""
+        is_json = response.is_json
+        if is_json:
+            self.object_view.set_value(response.json_value)
+        self._switching_tab = True
+        try:
+            if not is_json and self.tabs.currentIndex() == _OBJECT_TAB:
+                self.tabs.setCurrentIndex(_BODY_TAB)  # before hiding it, or Qt jumps to the next tab
+            self.tabs.setTabVisible(_OBJECT_TAB, is_json)
+            if is_json and self._prefer_object:
+                self.tabs.setCurrentIndex(_OBJECT_TAB)
+        finally:
+            self._switching_tab = False
+        self._sync_tab_actions()
 
     def _render_headers(self, response: ApiResponse) -> None:
         theme = current_theme()
@@ -334,9 +359,21 @@ class ResponseViewer(QWidget):
 
     # -- actions --------------------------------------------------------------------
 
+    def _on_tab_changed(self, index: int) -> None:
+        if not self._switching_tab:
+            self._prefer_object = index == _OBJECT_TAB
+        self._sync_tab_actions()
+
+    def _sync_tab_actions(self) -> None:
+        on_object = self.tabs.currentIndex() == _OBJECT_TAB
+        # The tree has its own navigation; find and wrap only apply to the text views.
+        self._search_button.setVisible(not on_object)
+        self._wrap_button.setVisible(not on_object)
+        self._copy_button.setToolTip(tr("Copy selected value as JSON") if on_object else tr("Copy response body"))
+
     def open_find(self) -> None:
         if self.stack.currentIndex() == 3 and self._body_stack.currentIndex() == 0:
-            self.tabs.setCurrentIndex(0)
+            self.tabs.setCurrentIndex(_BODY_TAB)
             self._find_bar.open()
 
     def _toggle_wrap(self, wrap: bool) -> None:
@@ -346,6 +383,14 @@ class ResponseViewer(QWidget):
     def _copy(self, text: str, message: str) -> None:
         QGuiApplication.clipboard().setText(text)
         self.notify.emit(message)
+
+    def copy_current(self) -> None:
+        """Corner button: the selected node on the object tab, the whole body elsewhere."""
+        if self.tabs.currentIndex() == _OBJECT_TAB and self.tabs.isTabVisible(_OBJECT_TAB):
+            self.object_view.copy_selected()
+            self.notify.emit(tr("Value copied to clipboard"))
+        else:
+            self.copy_body()
 
     def copy_body(self) -> None:
         if self._response is not None and self._response.is_text:
@@ -382,6 +427,7 @@ class ResponseViewer(QWidget):
         for widget in (self._wrap_button, self._search_button, self._more_button):
             apply_icon(widget)
         self._highlighter.refresh_theme()
+        self.object_view.refresh_theme()
         if self._response is not None:
             self.show_response(self._response)
 

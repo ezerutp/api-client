@@ -149,6 +149,10 @@ class JsonTreeView(QFrame):
             else:
                 self._show_message(tr("Write valid JSON to see its structure"))
             return
+        self.set_value(value)
+
+    def set_value(self, value: Any) -> None:
+        """Show an already parsed document (e.g. a response body)."""
         self._set_status("")
         self._value, self._has_value = value, True
         self._rebuild()
