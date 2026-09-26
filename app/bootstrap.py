@@ -55,11 +55,13 @@ def run(argv: list[str] | None = None) -> int:
     log.info("Starting %s %s", APP_NAME, APP_VERSION)
 
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    # Must be set before QApplication exists: Qt registers the app ID with the
+    # xdg-desktop-portal during construction and the portal only accepts it once.
+    QApplication.setDesktopFileName(APP_ID)
     app = QApplication(argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_ID)
     app.setApplicationVersion(APP_VERSION)
-    app.setDesktopFileName(APP_ID)
     app.setStyle("Fusion")
     font = QFont(app.font())
     font.setPixelSize(13)
