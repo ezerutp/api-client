@@ -107,3 +107,15 @@ def test_secrets_saved_separately(tmp_path):
     assert project["base_url"] == "http://localhost:8080"
     ctx = ProjectService.open(api_dir).service.variable_context("local")
     assert ctx.values["token"] == "abc"
+
+
+def test_update_project_base_url_follows_into_matching_environments(tmp_path):
+    service = ProjectService.create(tmp_path, "P", "http://old")
+    service.add_environment("prod", "https://prod.example.com")
+    service.update_project(name="P", base_url="http://new")
+
+    reopened = ProjectService.open(find_api_dir(tmp_path)).service
+    assert reopened.project.base_url == "http://new"
+    assert reopened.project.environments["local"].variables["base_url"] == "http://new"
+    assert reopened.project.environments["prod"].variables["base_url"] == "https://prod.example.com"
+    assert reopened.variable_context("local").values["base_url"] == "http://new"
