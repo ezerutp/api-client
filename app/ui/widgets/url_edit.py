@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QKeyEvent, QSyntaxHighlighter, QTextCharFormat
 from PySide6.QtWidgets import QFrame, QPlainTextEdit, QToolTip, QWidget
 
 from app.i18n import tr
+from app.services.curl_service import looks_like_curl
 from app.services.variable_service import VARIABLE_PATTERN, VariableContext, VariableResolver
 from app.themes.manager import current_theme
 from app.ui.widgets.code_editor import is_send_shortcut
@@ -49,6 +50,7 @@ class _UrlHighlighter(QSyntaxHighlighter):
 class UrlEdit(QPlainTextEdit):
     text_changed = Signal(str)
     submitted = Signal()
+    curl_pasted = Signal(str)  # a whole cURL command was pasted; the editor imports it
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -109,6 +111,9 @@ class UrlEdit(QPlainTextEdit):
         super().keyPressEvent(event)
 
     def insertFromMimeData(self, source: QMimeData) -> None:
+        if source.hasText() and looks_like_curl(source.text()):
+            self.curl_pasted.emit(source.text())
+            return
         text = " ".join(source.text().split()) if source.hasText() else ""
         self.textCursor().insertText(text.strip())
 
