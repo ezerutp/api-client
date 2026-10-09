@@ -347,6 +347,71 @@ class ProjectService:
         self._projects.save(self.project)
         return name
 
+    def delete_variable(self, environment: str | None, name: str) -> bool:
+        """Remove a variable (plain or secret) from one scope. Returns False if it was not there."""
+        if environment is not None and environment not in self.project.environments:
+            raise KeyError(f"Unknown environment: {environment}")
+        if environment is None:
+            plain, secrets = self.project.variables, self.secrets.globals
+        else:
+            plain = self.project.environments[environment].variables
+            secrets = self.secrets.by_environment.get(environment, {})
+        found = plain.pop(name, None) is not None
+        found = secrets.pop(name, None) is not None or found
+        if environment is None and name == "base_url" and self.project.base_url:
+            self.project.base_url = ""
+            found = True
+        if environment is not None and not secrets:
+            self.secrets.by_environment.pop(environment, None)
+        if found:
+            self._projects.save(self.project)
+            self._secrets_repo.save(self.secrets)
+            self._refresh_secret_registry()
+        return found
+
+    def rename_environment(self, old: str, new: str) -> str:
+        self._require_environment(old)
+        new = unique_slug(new, set(self.project.environments) - {old}, fallback="environment")
+        if new == old:
+            return old
+        self.project.environments = {
+            (new if k == old else k): (Environment(new, env.variables) if k == old else env)
+            for k, env in self.project.environments.items()
+        }
+        if old in self.secrets.by_environment:
+            self.secrets.by_environment[new] = self.secrets.by_environment.pop(old)
+        if self.project.active_environment == old:
+            self.project.active_environment = new
+        self._projects.save(self.project)
+        self._secrets_repo.save(self.secrets)
+        return new
+
+    def duplicate_environment(self, source: str, name: str | None = None) -> str:
+        env = self._require_environment(source)
+        name = unique_slug(name or f"{source}-copy", set(self.project.environments), fallback="environment")
+        self.project.environments[name] = Environment(name, dict(env.variables))
+        if source in self.secrets.by_environment:
+            self.secrets.by_environment[name] = dict(self.secrets.by_environment[source])
+        self._projects.save(self.project)
+        self._secrets_repo.save(self.secrets)
+        return name
+
+    def delete_environment(self, name: str) -> None:
+        self._require_environment(name)
+        del self.project.environments[name]
+        self.secrets.by_environment.pop(name, None)
+        if self.project.active_environment == name:
+            self.project.active_environment = next(iter(self.project.environments), "")
+        self._projects.save(self.project)
+        self._secrets_repo.save(self.secrets)
+        self._refresh_secret_registry()
+
+    def set_active_environment(self, name: str) -> None:
+        """The environment selected by default when the project is opened."""
+        self._require_environment(name)
+        self.project.active_environment = name
+        self._projects.save(self.project)
+
     def update_project(self, *, name: str, base_url: str) -> None:
         self.project.name = name.strip() or self.project.name
         old_base_url, new_base_url = self.project.base_url, base_url.strip()
@@ -370,6 +435,12 @@ class ProjectService:
         if found is None:
             raise KeyError(f"Unknown request: {request_id}")
         return found
+
+    def _require_environment(self, name: str) -> Environment:
+        env = self.project.environments.get(name)
+        if env is None:
+            raise KeyError(f"Unknown environment: {name}")
+        return env
 
     def _taken_collection_ids(self) -> set[str]:
         taken = {c.id for c in self._collections}

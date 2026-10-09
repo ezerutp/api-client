@@ -50,6 +50,10 @@ def _install_translations(app: QApplication, language: str) -> None:
 
 def run(argv: list[str] | None = None) -> int:
     argv = sys.argv if argv is None else argv
+    from app.cli import is_cli_invocation, main
+
+    if is_cli_invocation(argv[1:]):
+        return main(argv[1:])
     data_dir = user_data_dir()
     configure_logging(data_dir / "logs")
     log.info("Starting %s %s", APP_NAME, APP_VERSION)
