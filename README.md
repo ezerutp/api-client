@@ -29,6 +29,7 @@ stored **inside your repository** so the whole team shares them through Git.
   collections, when you reopen the project.
 - **History** of sent requests (SQLite) that you can filter and clear.
 - **Command palette** (Ctrl+K) to jump to any request or action.
+- **Command line** for every feature (`api-client run`, `api-client request add`…), see below.
 - **Copy as cURL**, which warns you and masks secrets when the request carries credentials.
 - **Import from OpenAPI 3** (**New › Import OpenAPI…**): load the spec from `{{base_url}}/v3/api-docs` (springdoc) or
   a JSON file, preview it, and get one collection per controller with path variables, query params, auth and a sample
@@ -202,6 +203,45 @@ next to a variable to store its value in `.secrets.json` instead of `project.jso
 automatically. Secret values are masked in log files, history entries, the URL preview and cURL exports
 (unless you explicitly choose to include them).
 
+## Command line
+
+Everything the app does is also available from the terminal, so you can script it or use it on a server or in
+CI (Qt is not loaded). `api-client` with no arguments, or with a folder, still opens the desktop app; with a
+command it runs the CLI:
+
+```bash
+api-client project init ~/backend-tienda --name Tienda --base-url http://localhost:8080
+cd ~/backend-tienda                      # the project is found from this folder or any subfolder (or pass -C DIR)
+
+api-client collection add Productos --base-path /api/productos
+api-client request add productos "Crear producto" -X POST --bearer '{{token}}' -d @producto.json
+api-client request add productos "Ver" --url '{{base_url}}/api/productos/{id}' -P id=1
+api-client var set token --secret        # prompts without echo; also: var set token VALUE / '-' for stdin
+api-client env add staging --base-url https://staging.example.com
+api-client run productos/Ver -e staging  # body to stdout, status line to stderr
+api-client run "Crear producto" -i --fail
+api-client curl Ver                      # secrets masked unless --show-secrets
+api-client import openapi                # {{base_url}}/v3/api-docs by default; also a URL or a JSON file
+api-client import curl productos < request.sh
+```
+
+| Command | Actions |
+|---|---|
+| `project` | `init`, `show`, `set --name/--base-url` |
+| `collection` (`col`) | `ls`, `add`, `rename`, `duplicate`, `move up/down`, `rm` |
+| `request` (`req`) | `ls`, `show`, `add`, `edit`, `rename`, `duplicate`, `move`, `rm` |
+| `run` (`send`) | send a request (`-e ENV`, `-i`, `--raw`, `-o FILE`, `--fail`, `--timeout`, `-k`) |
+| `curl` | print a request as a cURL command |
+| `env` | `ls`, `add`, `rename`, `duplicate`, `rm`, `use` (default environment) |
+| `var` | `ls`, `set [--secret] [-e ENV]`, `rm` |
+| `import` | `openapi [--only COLLECTION] [--dry-run]`, `curl` |
+| `history` | `ls`, `clear` |
+| `settings` | `ls`, `set KEY VALUE` (e.g. `network.timeout_seconds 60`) |
+
+Requests are selected by id, `collection/name` or a name that is unique in the project. Collections are
+selected by id or name. Listing commands accept `--json`, and destructive ones ask for confirmation (or `--yes`).
+Run `api-client <command> -h` for every option. History and settings are shared with the desktop app.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
@@ -229,8 +269,9 @@ automatically. Secret values are masked in log files, history entries, the URL p
 
 ```
 api_client/
-├── main.py                      entry point
+├── main.py                      entry point (desktop app, or the CLI when given a command)
 ├── app/
+│   ├── cli.py                   command line interface (Qt-free)
 │   ├── bootstrap.py             QApplication, logging, database, theme
 │   ├── models/                  dataclasses: Project, Environment, Collection, ApiRequest,
 │   │                            RequestHeader/Parameter/PathParameter, Authentication, ApiResponse,
