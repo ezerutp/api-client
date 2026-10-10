@@ -10,7 +10,9 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 
+from app.i18n import tr
 from app.services.variable_service import VARIABLE_PATTERN
 
 _PLACEHOLDER_PREFIX = "91827364"
@@ -27,9 +29,16 @@ class JsonValidation:
     @property
     def summary(self) -> str:
         if self.valid:
-            return "Valid JSON"
-        where = f" — line {self.line}" if self.line else ""
-        return f"Invalid JSON{where}: {self.message}"
+            return tr("Valid JSON")
+        if self.line:
+            return tr("Invalid JSON — line {line}: {message}", line=self.line, message=translate_json_error(self.message))
+        return tr("Invalid JSON: {message}", message=translate_json_error(self.message))
+
+
+def translate_json_error(message: str) -> str:
+    """Python's json module reports errors in English; translate the known ones."""
+    head, sep, tail = message.partition(": line")
+    return tr(head) + (sep + tail if sep else "")
 
 
 def _protect(text: str) -> tuple[str, list[str]]:
@@ -68,6 +77,34 @@ def format_json(text: str, indent: int = 2) -> str:
     protected, originals = _protect(text)
     parsed = json.loads(protected)
     return _restore(json.dumps(parsed, indent=indent, ensure_ascii=False), originals)
+
+
+class JsonVariable(str):
+    """A bare ``{{variable}}`` used as a JSON value (``{"id": {{product_id}}}``)."""
+
+
+def parse_json(text: str) -> Any:
+    """Parse keeping ``{{variables}}`` visible. Raises ``json.JSONDecodeError`` if invalid.
+
+    Variables inside strings are restored verbatim; a bare variable value becomes a
+    ``JsonVariable`` so viewers can tell it apart from a regular string.
+    """
+    protected, originals = _protect(text)
+    return _restore_value(json.loads(protected), originals)
+
+
+def _restore_value(value: Any, originals: list[str]) -> Any:
+    if isinstance(value, dict):
+        return {_restore(key, originals): _restore_value(item, originals) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_restore_value(item, originals) for item in value]
+    if isinstance(value, str):
+        return _restore(value, originals)
+    if isinstance(value, int) and not isinstance(value, bool):
+        match = _PLACEHOLDER_PATTERN.fullmatch(str(value))
+        if match and int(match.group(1)) < len(originals):
+            return JsonVariable(originals[int(match.group(1))])
+    return value
 
 
 def minify_json(text: str) -> str:

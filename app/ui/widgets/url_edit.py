@@ -9,6 +9,8 @@ from PySide6.QtCore import QEvent, QMimeData, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QSyntaxHighlighter, QTextCharFormat, QTextCursor, QTextOption
 from PySide6.QtWidgets import QFrame, QPlainTextEdit, QToolTip, QWidget
 
+from app.i18n import tr
+from app.services.curl_service import looks_like_curl
 from app.services.variable_service import VARIABLE_PATTERN, VariableContext, VariableResolver
 from app.themes.manager import current_theme
 from app.ui.widgets.code_editor import is_send_shortcut
@@ -48,6 +50,7 @@ class _UrlHighlighter(QSyntaxHighlighter):
 class UrlEdit(QPlainTextEdit):
     text_changed = Signal(str)
     submitted = Signal()
+    curl_pasted = Signal(str)  # a whole cURL command was pasted; the editor imports it
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -60,7 +63,7 @@ class UrlEdit(QPlainTextEdit):
         self.setTabChangesFocus(True)
         self.setFixedHeight(38)
         self.setMouseTracking(True)
-        self.setPlaceholderText("Enter URL, e.g. {{base_url}}/api/productos")
+        self.setPlaceholderText(tr("Enter URL, e.g. {{base_url}}/api/productos"))
         self.document().setDocumentMargin(0)
         self.variable_context = VariableContext()
         self._highlighter = _UrlHighlighter(self)
@@ -108,6 +111,9 @@ class UrlEdit(QPlainTextEdit):
         super().keyPressEvent(event)
 
     def insertFromMimeData(self, source: QMimeData) -> None:
+        if source.hasText() and looks_like_curl(source.text()):
+            self.curl_pasted.emit(source.text())
+            return
         text = " ".join(source.text().split()) if source.hasText() else ""
         self.textCursor().insertText(text.strip())
 
@@ -123,11 +129,11 @@ class UrlEdit(QPlainTextEdit):
 
     def _describe(self, name: str) -> str:
         context = self.variable_context
-        env = context.environment or "no environment"
+        env = escape(context.environment or tr("no environment"))
         if not context.is_defined(name):
-            return f"<b>{{{{{name}}}}}</b> is not defined in <i>{env}</i>"
+            return tr("<b>{name}</b> is not defined in <i>{env}</i>", name="{{" + name + "}}", env=env)
         if context.is_secret(name):
-            return f"<b>{name}</b> = •••••• <span style='opacity:.7'>(secret · {env})</span>"
+            return f"<b>{name}</b> = •••••• <span style='opacity:.7'>({tr('secret')} · {env})</span>"
         try:
             value = VariableResolver(context).resolve_variable(name)
         except Exception as exc:

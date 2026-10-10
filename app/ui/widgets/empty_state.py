@@ -3,16 +3,18 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QStackedWidget, QWidget
 
+from app.i18n import tr
 from app.themes.manager import current_theme
 from app.ui import icons
 from app.ui.helpers import button, hbox, label, vbox
 
-_SHORTCUTS = [
-    ("Ctrl + N", "New request"),
-    ("Ctrl + K", "Command palette"),
-    ("Ctrl + Enter", "Send request"),
-    ("Ctrl + L", "Focus URL"),
-]
+def _shortcuts() -> list[tuple[str, str]]:
+    return [
+        ("Ctrl + N", tr("New request")),
+        ("Ctrl + K", tr("Command palette")),
+        ("Ctrl + Enter", tr("Send request")),
+        ("Ctrl + L", tr("Focus URL")),
+    ]
 
 
 class EditorEmptyState(QWidget):
@@ -28,13 +30,13 @@ class EditorEmptyState(QWidget):
         self._select_icon = QLabel()
 
         no_requests = self._page(
-            self._no_requests_icon, 8, label("No requests yet", "EmptyTitle"),
-            label("Create your first request to start testing your API.", "EmptyText"), 12,
-            button("New Request", "primary", icon_name="plus", on_click=self.new_request.emit),
+            self._no_requests_icon, 8, label(tr("No requests yet"), "EmptyTitle"),
+            label(tr("Create your first request to start testing your API."), "EmptyText"), 12,
+            button(tr("New Request"), "primary", icon_name="plus", on_click=self.new_request.emit),
         )
         shortcuts = QWidget()
         rows = vbox(spacing=8)
-        for keys, text in _SHORTCUTS:
+        for keys, text in _shortcuts():
             key = label(keys, "ShortcutKey")
             key.setFixedWidth(96)
             key.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -42,8 +44,8 @@ class EditorEmptyState(QWidget):
         shortcuts.setLayout(rows)
         shortcuts.setFixedWidth(300)
         select = self._page(
-            self._select_icon, 8, label("Select a request", "EmptyTitle"),
-            label("Pick an endpoint from the sidebar or press Ctrl + K to search.", "EmptyText"), 18, shortcuts,
+            self._select_icon, 8, label(tr("Select a request"), "EmptyTitle"),
+            label(tr("Pick an endpoint from the sidebar or press Ctrl + K to search."), "EmptyText"), 18, shortcuts,
         )
         self.pages = QStackedWidget()
         self.pages.addWidget(no_requests)

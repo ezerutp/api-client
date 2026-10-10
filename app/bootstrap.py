@@ -5,13 +5,17 @@ from __future__ import annotations
 import logging
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QLibraryInfo, QLocale, Qt, QTranslator
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from app import APP_ID, APP_NAME, APP_VERSION
+from app.i18n import set_language
 from app.repositories import (
-    HistoryRepository, RecentProjectsRepository, SettingsRepository, UiStateRepository,
+    HistoryRepository,
+    RecentProjectsRepository,
+    SettingsRepository,
+    UiStateRepository,
 )
 from app.storage.database import Database
 from app.storage.paths import user_data_dir
@@ -31,18 +35,37 @@ def _app_icon() -> QIcon:
     return result
 
 
+def _install_translations(app: QApplication, language: str) -> None:
+    """Our strings use app.i18n; Qt's own widgets (context menus, file dialogs) use Qt's catalogs."""
+    QLocale.setDefault(QLocale(language))
+    if language == "en":
+        return
+    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    for catalog in ("qtbase", "qt"):
+        translator = QTranslator(app)
+        if translator.load(f"{catalog}_{language}", folder):
+            app.installTranslator(translator)
+            break
+
+
 def run(argv: list[str] | None = None) -> int:
     argv = sys.argv if argv is None else argv
+    from app.cli import is_cli_invocation, main
+
+    if is_cli_invocation(argv[1:]):
+        return main(argv[1:])
     data_dir = user_data_dir()
     configure_logging(data_dir / "logs")
     log.info("Starting %s %s", APP_NAME, APP_VERSION)
 
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    # Must be set before QApplication exists: Qt registers the app ID with the
+    # xdg-desktop-portal during construction and the portal only accepts it once.
+    QApplication.setDesktopFileName(APP_ID)
     app = QApplication(argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_ID)
     app.setApplicationVersion(APP_VERSION)
-    app.setDesktopFileName(APP_ID)
     app.setStyle("Fusion")
     font = QFont(app.font())
     font.setPixelSize(13)
@@ -52,6 +75,7 @@ def run(argv: list[str] | None = None) -> int:
     db = Database(data_dir / "api-client.db")
     settings_repo = SettingsRepository(db)
     settings = settings_repo.load()
+    _install_translations(app, set_language(settings.language))
     ThemeManager.instance().apply(settings.theme, editor_font_size=settings.editor_font_size)
 
     from app.ui.main_window import AppContext, MainWindow

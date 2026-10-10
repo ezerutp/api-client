@@ -3,14 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import QComboBox, QDialog, QLineEdit, QWidget
 
-from app.models.api_request import HttpMethod
+from app.i18n import tr
+from app.models.api_request import ApiRequest, HttpMethod
 from app.models.collection import Collection
+from app.services.curl_service import CurlImport, CurlParseError, looks_like_curl, parse_curl
 from app.themes.manager import current_theme
 from app.ui.dialogs.base import BaseDialog
-from app.ui.helpers import hbox, set_prop
+from app.ui.helpers import hbox, label, set_prop
+from app.ui.widgets.code_editor import CodeEditor
 
 _NEW_COLLECTION = "__new__"
 
@@ -25,8 +28,9 @@ class NewRequestResult:
 
 
 class NewRequestDialog(BaseDialog):
-    def __init__(self, parent: QWidget | None, collections: list[Collection], selected: str | None) -> None:
-        super().__init__(parent, "New Request", width=460)
+    def __init__(self, parent: QWidget | None, collections: list[Collection], selected: str | None,
+                 initial: ApiRequest | None = None) -> None:
+        super().__init__(parent, tr("New Request"), width=460)
         self._collections = {c.id: c for c in collections}
         self._url_touched = False
         theme = current_theme()
@@ -42,24 +46,30 @@ class NewRequestDialog(BaseDialog):
         self.collection = QComboBox()
         for collection in collections:
             self.collection.addItem(collection.name, collection.id)
-        self.collection.addItem("+ New collection…", _NEW_COLLECTION)
+        self.collection.addItem(tr("+ New collection…"), _NEW_COLLECTION)
         if selected and selected in self._collections:
             self.collection.setCurrentIndex(self.collection.findData(selected))
         self.collection.currentIndexChanged.connect(self._on_collection_changed)
-        self.new_collection = QLineEdit("General" if not collections else "")
-        self.new_collection.setPlaceholderText("Collection name, e.g. Productos")
+        self.new_collection = QLineEdit(tr("General") if not collections else "")
+        self.new_collection.setPlaceholderText(tr("Collection name, e.g. Productos"))
         self.url = QLineEdit()
         self.url.textEdited.connect(self._on_url_edited)
 
-        self.add_field("Name", self.name)
-        self.add_field("Method and collection", layout=hbox(self.method, self.collection, spacing=8))
+        self.add_field(tr("Name"), self.name)
+        self.add_field(tr("Method and collection"), layout=hbox(self.method, self.collection, spacing=8))
         self._new_collection_caption_index = self.content.count()
-        self.add_field("New collection name", self.new_collection)
-        self.add_field("URL", self.url, hint="Use {path} for path variables, e.g. {{base_url}}/api/productos/{id}")
-        self.ok_button.setText("Create")
+        self.add_field(tr("New collection name"), self.new_collection)
+        self.add_field(tr("URL"), self.url, hint=tr("Use {id}-style placeholders for path variables, e.g. {{base_url}}/api/productos/{id}"))
+        self.ok_button.setText(tr("Create"))
+        if initial is not None:  # e.g. imported from cURL: keep its method and URL
+            self.name.setText(initial.name)
+            self.method.setCurrentIndex(self.method.findData(initial.method))
+            self.url.setText(initial.url)
+            self._url_touched = True
         self._on_collection_changed()
         self._update_method_color()
         self.name.setFocus()
+        self.name.selectAll()
 
     def _update_method_color(self) -> None:
         method = HttpMethod(self.method.currentData())
@@ -100,23 +110,64 @@ class NewRequestDialog(BaseDialog):
         )
 
     @staticmethod
-    def ask(parent: QWidget | None, collections: list[Collection], selected: str | None) -> NewRequestResult | None:
-        dialog = NewRequestDialog(parent, collections, selected)
+    def ask(parent: QWidget | None, collections: list[Collection], selected: str | None,
+            initial: ApiRequest | None = None) -> NewRequestResult | None:
+        dialog = NewRequestDialog(parent, collections, selected, initial)
         return dialog.result_value() if dialog.exec() == QDialog.DialogCode.Accepted else None
+
+
+class CurlImportDialog(BaseDialog):
+    """Paste a cURL command; the next step (NewRequestDialog) picks name and collection."""
+
+    def __init__(self, parent: QWidget | None, base_url: str) -> None:
+        super().__init__(parent, tr("Import cURL"), width=620)
+        self._base_url = base_url
+        self._result: CurlImport | None = None
+        self.command = CodeEditor()
+        self.command.setPlaceholderText("curl 'https://api.example.com/items' -H 'Accept: application/json'")
+        self.command.setMinimumHeight(180)
+        self.command.set_wrap(True)
+        clipboard = QGuiApplication.clipboard().text()
+        if looks_like_curl(clipboard):
+            self.command.setPlainText(clipboard.strip())
+        self.error = label("", "FieldError", wrap=True)
+        self.error.hide()
+        self.command.textChanged.connect(lambda: (self.error.hide(), set_prop(self.command, "error", False)))
+        self.add_field(tr("cURL command"), self.command,
+                       hint=tr("Works with “Copy as cURL” from the browser (bash or cmd) and commands from API docs. "
+                               "URLs under the active base URL become {{base_url}}."))
+        self.content.addWidget(self.error)
+        self.ok_button.setText(tr("Continue"))
+        self.command.setFocus()
+
+    def validate(self) -> bool:
+        try:
+            self._result = parse_curl(self.command.toPlainText(), self._base_url)
+        except CurlParseError as exc:
+            self.error.setText(str(exc))
+            self.error.show()
+            set_prop(self.command, "error", True)
+            return False
+        return True
+
+    @staticmethod
+    def ask(parent: QWidget | None, base_url: str) -> CurlImport | None:
+        dialog = CurlImportDialog(parent, base_url)
+        return dialog._result if dialog.exec() == QDialog.DialogCode.Accepted else None
 
 
 class CollectionDialog(BaseDialog):
     def __init__(self, parent: QWidget | None, collection: Collection | None) -> None:
-        super().__init__(parent, "Edit Collection" if collection else "New Collection", width=440)
+        super().__init__(parent, tr("Edit Collection") if collection else tr("New Collection"), width=440)
         self.name = QLineEdit(collection.name if collection else "")
         self.name.setPlaceholderText("Productos")
         self.base_path = QLineEdit(collection.base_path if collection else "")
         self.base_path.setPlaceholderText("/api/productos")
-        self.add_field("Name", self.name)
-        self.add_field("Base path (optional)", self.base_path,
-                       hint="Mirrors @RequestMapping on the controller. New requests start with "
-                            "{{base_url}} + this path.")
-        self.ok_button.setText("Save" if collection else "Create")
+        self.add_field(tr("Name"), self.name)
+        self.add_field(tr("Base path (optional)"), self.base_path,
+                       hint=tr("Mirrors @RequestMapping on the controller. New requests start with "
+                               "{{base_url}} + this path."))
+        self.ok_button.setText(tr("Save") if collection else tr("Create"))
         self.name.setFocus()
         self.name.selectAll()
 

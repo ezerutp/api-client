@@ -2,7 +2,8 @@
 
     python tools/mock_server.py [port]      (default 8080)
 
-Endpoints: /api/productos (CRUD), /api/usuarios (GET, POST), /api/auth/login (POST).
+Endpoints: /api/productos (CRUD), /api/usuarios (GET, POST), /api/auth/login (POST), and the springdoc-style
+OpenAPI spec describing them at /v3/api-docs.
 Write operations on /api/productos require an ``Authorization: Bearer ...`` header.
 """
 
@@ -23,6 +24,69 @@ _products: dict[int, dict] = {
 }
 _users: list[dict] = [{"id": 1, "nombre": "Admin", "email": "admin@example.com"}]
 _ITEM = re.compile(r"^/api/productos/(\d+)$")
+
+_PRODUCT_ID = {"name": "id", "in": "path", "required": True, "schema": {"type": "integer", "format": "int64"}}
+_JSON_PRODUCT = {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Producto"}}},
+                 "required": True}
+_BEARER = [{"bearerAuth": []}]
+# Shaped like what springdoc-openapi generates for Spring controllers (one tag per controller).
+OPENAPI_SPEC = {
+    "openapi": "3.0.1",
+    "info": {"title": "Tienda API", "version": "v1"},
+    "servers": [{"url": "http://localhost:8080", "description": "Generated server url"}],
+    "paths": {
+        "/api/productos": {
+            "get": {"tags": ["producto-controller"], "operationId": "listarProductos",
+                    "parameters": [
+                        {"name": "page", "in": "query", "schema": {"type": "integer", "default": 0}},
+                        {"name": "size", "in": "query", "schema": {"type": "integer", "default": 20}},
+                        {"name": "sort", "in": "query", "schema": {"type": "string"}, "example": "nombre"},
+                    ],
+                    "responses": {"200": {"description": "OK"}}},
+            "post": {"tags": ["producto-controller"], "operationId": "crearProducto", "security": _BEARER,
+                     "requestBody": _JSON_PRODUCT, "responses": {"201": {"description": "Created"}}},
+        },
+        "/api/productos/{id}": {
+            "get": {"tags": ["producto-controller"], "operationId": "obtenerProducto", "parameters": [_PRODUCT_ID],
+                    "responses": {"200": {"description": "OK"}}},
+            "put": {"tags": ["producto-controller"], "operationId": "actualizarProducto", "security": _BEARER,
+                    "parameters": [_PRODUCT_ID], "requestBody": _JSON_PRODUCT,
+                    "responses": {"200": {"description": "OK"}}},
+            "delete": {"tags": ["producto-controller"], "operationId": "eliminarProducto", "security": _BEARER,
+                       "parameters": [_PRODUCT_ID], "responses": {"204": {"description": "No Content"}}},
+        },
+        "/api/usuarios": {
+            "get": {"tags": ["usuario-controller"], "operationId": "listarUsuarios",
+                    "responses": {"200": {"description": "OK"}}},
+            "post": {"tags": ["usuario-controller"], "operationId": "crearUsuario",
+                     "requestBody": {"content": {"application/json": {
+                         "schema": {"$ref": "#/components/schemas/Usuario"}}}},
+                     "responses": {"201": {"description": "Created"}}},
+        },
+        "/api/auth/login": {
+            "post": {"tags": ["auth-controller"], "summary": "Iniciar sesión", "operationId": "login",
+                     "requestBody": {"content": {"application/json": {
+                         "example": {"username": "admin", "password": "admin"}}}},
+                     "responses": {"200": {"description": "OK"}}},
+        },
+    },
+    "components": {
+        "schemas": {
+            "Producto": {"type": "object", "required": ["nombre"], "properties": {
+                "id": {"type": "integer", "format": "int64", "readOnly": True},
+                "nombre": {"type": "string", "example": "Monitor"},
+                "precio": {"type": "number", "example": 350},
+                "stock": {"type": "integer", "example": 5},
+            }},
+            "Usuario": {"type": "object", "properties": {
+                "id": {"type": "integer", "format": "int64", "readOnly": True},
+                "nombre": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+            }},
+        },
+        "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}},
+    },
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -58,7 +122,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parts = urlsplit(self.path)
-        if parts.path == "/api/productos":
+        if parts.path == "/v3/api-docs":
+            self._send(200, OPENAPI_SPEC)
+        elif parts.path == "/api/productos":
             query = parse_qs(parts.query)
             page, size = int(query.get("page", ["0"])[0]), int(query.get("size", ["20"])[0])
             with _lock:

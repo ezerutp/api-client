@@ -5,6 +5,7 @@ from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QPainter, QPixma
 from PySide6.QtWidgets import QFrame, QLabel, QMenu, QToolButton, QWidget
 
 from app import APP_NAME
+from app.i18n import tr
 from app.models.environment import Environment
 from app.repositories.recent_projects_repository import RecentProject
 from app.themes.manager import current_theme
@@ -53,6 +54,7 @@ class LogoBadge(QLabel):
 class TopBar(QWidget):
     environment_selected = Signal(str)
     manage_environments = Signal()
+    open_variables = Signal()
     open_history = Signal()
     open_settings = Signal()
     open_palette = Signal()
@@ -93,27 +95,30 @@ class TopBar(QWidget):
         self.env_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.env_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.env_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.env_button.setToolTip("Active environment")
+        self.env_button.setToolTip(tr("Active environment"))
         self.env_button.setMinimumWidth(120)
         self._env_menu = QMenu(self.env_button)
         self.env_button.setMenu(self._env_menu)
 
+        self.variables_button = icon_button("braces", tr("Environment variables (Ctrl+Shift+E)"),
+                                            on_click=self.open_variables.emit)
+
         self._env_separator = QFrame()
         self._env_separator.setObjectName("TopBarSeparator")
         self._env_separator.setFixedSize(1, 20)
-        self.palette_button = icon_button("command", "Command palette (Ctrl+K)", on_click=self.open_palette.emit)
-        self.history_button = icon_button("history", "History (Ctrl+H)", on_click=self.open_history.emit)
+        self.palette_button = icon_button("command", tr("Command palette (Ctrl+K)"), on_click=self.open_palette.emit)
+        self.history_button = icon_button("history", tr("History (Ctrl+H)"), on_click=self.open_history.emit)
         self.settings_button = QToolButton()
-        self.settings_button.setText("Settings")
+        self.settings_button.setText(tr("Settings"))
         self.settings_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.settings_button.setToolTip("Settings (Ctrl+,)")
+        self.settings_button.setToolTip(tr("Settings (Ctrl+,)"))
         self.settings_button.setProperty("icon_name", "settings")
         self.settings_button.clicked.connect(self.open_settings.emit)
 
         self.setLayout(hbox(
             self.logo, 2, title, 8, self._separator, 4, self.project_button, None,
-            self.env_button, 6, self._env_separator, 6, self.palette_button, self.history_button,
+            self.env_button, 2, self.variables_button, 6, self._env_separator, 6, self.palette_button, self.history_button,
             self.settings_button, spacing=6, margins=(14, 0, 12, 0),
         ))
         self.set_project(None)
@@ -122,8 +127,8 @@ class TopBar(QWidget):
 
     def set_project(self, name: str | None) -> None:
         has_project = name is not None
-        for widget in (self._separator, self.project_button, self.env_button, self._env_separator,
-                       self.history_button, self.palette_button):
+        for widget in (self._separator, self.project_button, self.env_button, self.variables_button,
+                       self._env_separator, self.history_button, self.palette_button):
             widget.setVisible(has_project)
         self.project_button.setText(name or "")
 
@@ -142,11 +147,11 @@ class TopBar(QWidget):
             group.addAction(action)
             self._env_menu.addAction(action)
         if not environments:
-            placeholder = self._env_menu.addAction("No environments")
+            placeholder = self._env_menu.addAction(tr("No environments"))
             placeholder.setEnabled(False)
         self._env_menu.addSeparator()
-        self._env_menu.addAction("Manage environments…", self.manage_environments.emit)
-        display = next((e.display_name for e in environments if e.name == current), "No environment")
+        self._env_menu.addAction(tr("Manage environments…"), self.manage_environments.emit)
+        display = next((e.display_name for e in environments if e.name == current), tr("No environment"))
         self.env_button.setText(f" {display}")
         self.env_button.setIcon(dot_icon(environment_color(current) if current else current_theme().text_faint))
 
@@ -154,7 +159,7 @@ class TopBar(QWidget):
         theme = current_theme()
         self.logo.refresh_theme()
         self.project_button.setIcon(icons.icon("chevron-down", theme.text_muted, 14))
-        for widget in (self.history_button, self.palette_button, self.settings_button):
+        for widget in (self.variables_button, self.history_button, self.palette_button, self.settings_button):
             apply_icon(widget)
         if self._current_env:
             self.env_button.setIcon(dot_icon(environment_color(self._current_env)))
@@ -162,17 +167,17 @@ class TopBar(QWidget):
     def _build_project_menu(self) -> None:
         menu = self._project_menu
         menu.clear()
-        menu.addAction("Project settings…", self.edit_project.emit)
-        menu.addAction("Reveal api-client folder", self.reveal_folder.emit)
-        menu.addAction("Reload from disk", self.reload_project.emit)
+        menu.addAction(tr("Project settings…"), self.edit_project.emit)
+        menu.addAction(tr("Reveal api-client folder"), self.reveal_folder.emit)
+        menu.addAction(tr("Reload from disk"), self.reload_project.emit)
         menu.addSeparator()
-        menu.addAction("Open project…", self.open_project.emit)
-        menu.addAction("Create project…", self.create_project.emit)
+        menu.addAction(tr("Open project…"), self.open_project.emit)
+        menu.addAction(tr("Create project…"), self.create_project.emit)
         others = self._recent[:8]
         if others:
-            recent_menu = menu.addMenu("Open recent")
+            recent_menu = menu.addMenu(tr("Open recent"))
             for project in others:
                 action = recent_menu.addAction(f"{project.name}    {project.path}")
                 action.triggered.connect(lambda _=False, p=project.path: self.open_recent.emit(p))
         menu.addSeparator()
-        menu.addAction("Close project", self.close_project.emit)
+        menu.addAction(tr("Close project"), self.close_project.emit)

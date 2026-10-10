@@ -434,6 +434,35 @@ QPlainTextEdit#CodeEditor { font-size: ${editor_font_size}; }
 QPlainTextEdit#CodeEditor:focus { border-color: ${border_strong}; }
 QPlainTextEdit#CodeEditor[error="true"] { border-color: ${danger}; }
 
+/* Object view (JSON tree next to the body editor) */
+QSplitter#ObjectSplitter::handle { background: transparent; }
+QSplitter#ObjectSplitter::handle:hover { background: transparent; }
+#ObjectView {
+    background: ${bg_panel};
+    border: 1px solid ${border};
+    border-radius: 6px;
+}
+#ObjectViewHeader { border-bottom: 1px solid ${border}; }
+#ObjectViewTitle { font-weight: 600; }
+#ObjectViewMessage { color: ${text_faint}; font-size: 12px; }
+#ObjectViewStatus { color: ${warning}; font-size: 12px; padding: 4px 10px; border-bottom: 1px solid ${border}; }
+QTreeWidget#ObjectTree {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 2px 4px;
+}
+QTreeWidget#ObjectTree::item {
+    padding: 3px 4px;
+    border-radius: 0;
+    min-height: 22px;
+    border-bottom: 1px solid ${border};
+}
+QTreeWidget#ObjectTree::item:selected { background: ${bg_selected}; }
+QTreeWidget#ObjectTree::branch { border-bottom: 1px solid ${border}; }
+QTreeWidget#ObjectTree::branch:has-children:closed { image: url(${icon_chevron_right}); }
+QTreeWidget#ObjectTree::branch:has-children:open { image: url(${icon_chevron}); }
+
 QTextBrowser {
     background: ${bg_panel};
     border: 1px solid ${border};
@@ -455,6 +484,20 @@ QTextBrowser {
     font-weight: 600;
 }
 #KvRow { border-bottom: 1px solid ${border}; }
+
+/* Environment variables window */
+QTableWidget#VariablesTable {
+    background: ${bg_panel};
+    border: 1px solid ${border};
+    border-radius: 8px;
+    padding: 0 4px;
+}
+QTableWidget#VariablesTable::item {
+    border-bottom: 1px solid ${border};
+    padding: 0 6px;
+}
+QTableWidget#VariablesTable::item:selected { background: ${bg_selected}; color: ${text}; }
+QTableWidget#VariablesTable QHeaderView::section { padding: 8px 6px; }
 
 /* ---------- Home screen ---------- */
 
@@ -561,6 +604,18 @@ QHeaderView::section {
     font-size: 11px;
     font-weight: 600;
 }
+
+QTreeWidget::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid ${border_strong};
+    border-radius: 4px;
+    background: ${bg_input};
+}
+QTreeWidget::indicator:hover { border-color: ${text_faint}; }
+QTreeWidget::indicator:checked { background: ${accent}; border-color: ${accent}; image: url(${icon_check}); }
+QTreeWidget::indicator:indeterminate { background: ${accent}; border-color: ${accent}; image: url(${icon_minus}); }
+QTreeWidget::indicator:disabled { background: ${bg_hover}; border-color: ${border}; }
 
 QListWidget#SettingsNav {
     background: transparent;

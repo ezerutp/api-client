@@ -17,7 +17,9 @@ stored **inside your repository** so the whole team shares them through Git.
 - **JSON body editor** with syntax highlighting, line numbers, auto-indent, Format (Ctrl+Shift+F) and inline validation
   (`Invalid JSON — line 5`) that also marks the bad line. `{{variables}}` inside JSON are supported.
 - **Environments and variables:** `{{base_url}}`, `{{token}}`… with per-environment values. Undefined variables are
-  underlined in red in the URL, and hovering one shows its value.
+  underlined in red in the URL, and hovering one shows its value. The `{}` button next to the environment selector
+  (Ctrl+Shift+E) opens a floating window to search, add, rename and delete variables and environments; every edit is
+  saved right away.
 - **Secrets** in a git-ignored `.secrets.json`, masked in logs, history and cURL exports.
 - **Response viewer:** colored status, time and size, pretty-printed JSON, headers, raw view, find (Ctrl+F),
   word wrap, copy and save to file.
@@ -27,19 +29,46 @@ stored **inside your repository** so the whole team shares them through Git.
   collections, when you reopen the project.
 - **History** of sent requests (SQLite) that you can filter and clear.
 - **Command palette** (Ctrl+K) to jump to any request or action.
+- **Command line** for every feature (`api-client run`, `api-client request add`…), see below.
 - **Copy as cURL**, which warns you and masks secrets when the request carries credentials.
+- **Import from OpenAPI 3** (**New › Import OpenAPI…**): load the spec from `{{base_url}}/v3/api-docs` (springdoc) or
+  a JSON file, preview it, and get one collection per controller with path variables, query params, auth and a sample
+  JSON body built from the schema. Importing again only adds endpoints that are new (same method and path are left
+  untouched).
 - **Dark theme** by default, plus Light and System.
+- **English and Spanish interface**: follows the system language by default, and you can change it in
+  Settings → Appearance.
 - **Readable errors** for connection refused, timeouts, DNS, SSL, invalid URLs, missing variables and corrupt
   files. A broken JSON file is skipped and **never overwritten**.
 
 ## Requirements
 
-- Python **3.12+**
 - Linux, Windows or macOS with a desktop session
+- Python **3.12+**, only to run from source (the release packages bring everything they need)
 
 Dependencies: `PySide6` (UI) and `httpx` (HTTP). Nothing else at runtime.
 
 ## Quick install (Linux)
+
+Download `api-client-linux-x86_64.tar.gz` from the [latest release](https://github.com/ezerutp/api-client/releases)
+and run its installer. Python is not needed:
+
+```bash
+tar -xzf api-client-linux-x86_64.tar.gz
+./api-client/install.sh
+```
+
+It copies the app to `~/.local/lib/api-client`, links the `api-client` command in `~/.local/bin`, and adds the icon
+and an **API Client** entry to your applications menu. To update, run the `install.sh` of a newer release.
+`./api-client/install.sh --uninstall` removes the app; your projects and settings are kept. It never uses sudo
+or writes outside your home folder.
+
+To build the archive yourself, run `packaging/linux/build.sh` (needs Python 3.12+ and `libxcb-cursor0`, or
+`xcb-util-cursor` on Fedora). It produces `dist_installer/api-client-linux-x86_64.tar.gz`.
+
+### From source
+
+To always run the latest code instead, install from a clone:
 
 ```bash
 git clone https://github.com/ezerutp/api-client.git
@@ -56,6 +85,28 @@ The script:
 
 Run `./install.sh` again at any time to update. `./install.sh --uninstall` removes the launcher; your
 projects and settings are kept. The script never uses sudo or writes outside your home folder.
+
+## Quick install (Windows)
+
+Download `api-client-setup.exe` from the [latest release](https://github.com/ezerutp/api-client/releases)
+and run it. The installer:
+
+1. Installs API Client to `%LocalAppData%\Programs\API Client` (no administrator rights needed).
+2. Adds that folder to your user `PATH`, so `api-client` works from any terminal.
+3. Creates a **Desktop** shortcut and a Start Menu entry.
+
+Uninstall from **Settings → Apps**, like any other Windows program; it also removes the `PATH` entry.
+Your projects and settings are kept (they live in your backend repos and `%APPDATA%\api-client`).
+
+To build the installer yourself from this repository:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1
+```
+
+This requires Python 3.12+ and [Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install
+JRSoftware.InnoSetup`) on `PATH`. It produces `dist_installer\api-client-setup.exe`. See
+`packaging/windows/` for the PyInstaller icon step and the Inno Setup script.
 
 ## Manual installation and running
 
@@ -93,6 +144,7 @@ python main.py examples/backend-tienda # in another terminal
 ```
 
 Open **Productos › Crear producto**, press **Ctrl+Enter**, and you get `201 Created` with the new product.
+The mock also serves an OpenAPI spec at `/v3/api-docs`, so **New › Import OpenAPI…** works against it too.
 
 ## How `api-client/` works
 
@@ -188,10 +240,49 @@ Keep tokens, passwords and API keys in `.secrets.json`:
 }
 ```
 
-You can also manage them from **Environments**: click the lock icon next to a variable to store its value in
-`.secrets.json` instead of `project.json`. The file is listed in `api-client/.gitignore`, which is created
+You can also manage them from the **Environment variables** window (Ctrl+Shift+E): turn on the **Secret** switch
+next to a variable to store its value in `.secrets.json` instead of `project.json`. The file is listed in `api-client/.gitignore`, which is created
 automatically. Secret values are masked in log files, history entries, the URL preview and cURL exports
 (unless you explicitly choose to include them).
+
+## Command line
+
+Everything the app does is also available from the terminal, so you can script it or use it on a server or in
+CI (Qt is not loaded). `api-client` with no arguments, or with a folder, still opens the desktop app; with a
+command it runs the CLI:
+
+```bash
+api-client project init ~/backend-tienda --name Tienda --base-url http://localhost:8080
+cd ~/backend-tienda                      # the project is found from this folder or any subfolder (or pass -C DIR)
+
+api-client collection add Productos --base-path /api/productos
+api-client request add productos "Crear producto" -X POST --bearer '{{token}}' -d @producto.json
+api-client request add productos "Ver" --url '{{base_url}}/api/productos/{id}' -P id=1
+api-client var set token --secret        # prompts without echo; also: var set token VALUE / '-' for stdin
+api-client env add staging --base-url https://staging.example.com
+api-client run productos/Ver -e staging  # body to stdout, status line to stderr
+api-client run "Crear producto" -i --fail
+api-client curl Ver                      # secrets masked unless --show-secrets
+api-client import openapi                # {{base_url}}/v3/api-docs by default; also a URL or a JSON file
+api-client import curl productos < request.sh
+```
+
+| Command | Actions |
+|---|---|
+| `project` | `init`, `show`, `set --name/--base-url` |
+| `collection` (`col`) | `ls`, `add`, `rename`, `duplicate`, `move up/down`, `rm` |
+| `request` (`req`) | `ls`, `show`, `add`, `edit`, `rename`, `duplicate`, `move`, `rm` |
+| `run` (`send`) | send a request (`-e ENV`, `-i`, `--raw`, `-o FILE`, `--fail`, `--timeout`, `-k`) |
+| `curl` | print a request as a cURL command |
+| `env` | `ls`, `add`, `rename`, `duplicate`, `rm`, `use` (default environment) |
+| `var` | `ls`, `set [--secret] [-e ENV]`, `rm` |
+| `import` | `openapi [--only COLLECTION] [--dry-run]`, `curl` |
+| `history` | `ls`, `clear` |
+| `settings` | `ls`, `set KEY VALUE` (e.g. `network.timeout_seconds 60`) |
+
+Requests are selected by id, `collection/name` or a name that is unique in the project. Collections are
+selected by id or name. Listing commands accept `--json`, and destructive ones ask for confirmation (or `--yes`).
+Run `api-client <command> -h` for every option. History and settings are shared with the desktop app.
 
 ## Keyboard shortcuts
 
@@ -205,6 +296,7 @@ automatically. Secret values are masked in log files, history entries, the URL p
 | Ctrl+Shift+F | Format the JSON body |
 | Ctrl+K / Ctrl+Shift+P | Command palette |
 | Ctrl+E | Switch environment |
+| Ctrl+Shift+E | Environment variables window |
 | Ctrl+P | Search the sidebar |
 | Ctrl+F | Find in the response |
 | Ctrl+D | Duplicate the request |
@@ -219,8 +311,9 @@ automatically. Secret values are masked in log files, history entries, the URL p
 
 ```
 api_client/
-├── main.py                      entry point
+├── main.py                      entry point (desktop app, or the CLI when given a command)
 ├── app/
+│   ├── cli.py                   command line interface (Qt-free)
 │   ├── bootstrap.py             QApplication, logging, database, theme
 │   ├── models/                  dataclasses: Project, Environment, Collection, ApiRequest,
 │   │                            RequestHeader/Parameter/PathParameter, Authentication, ApiResponse,
@@ -234,7 +327,8 @@ api_client/
 │   │   ├── auth_strategies.py   one strategy per auth type (extension point for OAuth2)
 │   │   ├── project_service.py   operations on an open api-client/ folder
 │   │   ├── json_service.py      validation/formatting that tolerates {{variables}}
-│   │   └── curl_service.py      "Copy as cURL"
+│   │   ├── curl_service.py      "Copy as cURL" and cURL import
+│   │   └── openapi_service.py   OpenAPI 3 spec → collections and requests
 │   ├── network/                 QRunnable worker, exception → readable error mapping
 │   ├── importers/               interfaces for future importers/exporters
 │   ├── themes/                  palettes (theme.py), QSS template (style.qss), theme manager
@@ -243,8 +337,8 @@ api_client/
 │       ├── main_window.py       wires widgets and services together
 │       ├── widgets/             sidebar, tabs, request editor, URL field, code editor, key/value
 │       │                        tables, auth/body editors, response viewer, home screen, toasts
-│       └── dialogs/             create project, new request, collections, environments, settings,
-│                                history, command palette, confirmations
+│       └── dialogs/             create project, new request, collections, environment variables,
+│                                settings, history, command palette, confirmations
 ├── tests/                       pytest suite (core logic and an end-to-end UI smoke test)
 ├── tools/mock_server.py         in-memory backend for trying the app
 └── examples/backend-tienda/     sample api-client/ folder
@@ -279,13 +373,29 @@ pyinstaller api_client.spec
 # → dist/api-client/api-client   (Windows: dist\api-client\api-client.exe)
 ```
 
+## Releasing
+
+`.github/workflows/release.yml` builds the Windows installer and the Linux archive on GitHub Actions and
+publishes both in a GitHub release. To release a new version:
+
+1. Bump the version in `app/__init__.py` (`APP_VERSION`) and in `pyproject.toml`, and merge it into `main`.
+2. Tag that commit and push the tag:
+
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+
+The workflow fails if the tag does not match the app version. You can also run it by hand from the
+**Actions** tab to build both packages without publishing a release.
+
 ## Roadmap
 
 The architecture already has extension points for:
 
 - **Import endpoints from Spring Boot:** scan `@RestController`, `@RequestMapping`, `@GetMapping`,
   `@PostMapping`… and generate collections (`app/importers/base.py`, `CollectionImporter`).
-- Postman / OpenAPI import and collection export (`CollectionImporter` / `CollectionExporter`).
+- Postman import and collection export (`CollectionImporter` / `CollectionExporter`).
 - OAuth2 and API-key auth (`app/services/auth_strategies.py`, `register_strategy`).
 - Proxy and client certificates (`NetworkSettings`).
 

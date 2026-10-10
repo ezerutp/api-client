@@ -4,6 +4,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QLabel, QMenu, QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget
 
+from app.i18n import tr
 from app.models.api_request import ApiRequest
 from app.themes.manager import current_theme
 from app.ui import icons
@@ -25,7 +26,7 @@ class _TabLabel(QWidget):
         self.close_button = QToolButton()
         self.close_button.setObjectName("TabCloseButton")
         self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_button.setToolTip("Close (Ctrl+W)")
+        self.close_button.setToolTip(tr("Close (Ctrl+W)"))
         self.close_button.clicked.connect(self.close_clicked)
         self.setLayout(hbox(self.method, self.name, 4, self.close_button, spacing=6, margins=(12, 0, 6, 0)))
         self.update_request(request)
@@ -58,10 +59,10 @@ class _TabLabel(QWidget):
         theme = current_theme()
         if self._dirty and not self._hovered:
             self.close_button.setIcon(self._dot_icon(theme.text_muted))
-            self.close_button.setToolTip("Unsaved changes (saving…)")
+            self.close_button.setToolTip(tr("Unsaved changes (saving…)"))
         else:
             self.close_button.setIcon(icons.icon("close", theme.text_faint, 13, active_color=theme.text))
-            self.close_button.setToolTip("Close (Ctrl+W)")
+            self.close_button.setToolTip(tr("Close (Ctrl+W)"))
 
     @staticmethod
     def _dot_icon(color: str):
@@ -100,7 +101,7 @@ class RequestTabs(QWidget):
         self.tab_bar.tabMoved.connect(self._on_tab_moved)
         self.tab_bar.installEventFilter(self)
 
-        self._new_button = icon_button("plus", "New request (Ctrl+N)", on_click=self.new_requested.emit)
+        self._new_button = icon_button("plus", tr("New request (Ctrl+N)"), on_click=self.new_requested.emit)
         bar = QWidget()
         bar.setObjectName("RequestTabsBar")
         bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -226,9 +227,9 @@ class RequestTabs(QWidget):
             return
         request_id = self._editors[index].request.id
         menu = QMenu(self)
-        menu.addAction("Close", lambda: self.close_requested.emit(request_id))
-        menu.addAction("Close others", lambda: self._close_many(lambda e: e.request.id != request_id))
-        menu.addAction("Close all", lambda: self._close_many(lambda e: True))
+        menu.addAction(tr("Close"), lambda: self.close_requested.emit(request_id))
+        menu.addAction(tr("Close others"), lambda: self._close_many(lambda e: e.request.id != request_id))
+        menu.addAction(tr("Close all"), lambda: self._close_many(lambda e: True))
         menu.exec(self.tab_bar.mapToGlobal(position))
 
     def _close_many(self, predicate) -> None:

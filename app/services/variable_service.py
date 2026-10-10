@@ -7,10 +7,12 @@ nothing is ever evaluated. Variables may reference other variables
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from app.i18n import tr
 from app.models.project import Project
 from app.repositories.secrets_repository import Secrets
 
@@ -26,16 +28,20 @@ class MissingVariablesError(VariableError):
     def __init__(self, names: Iterable[str], environment: str | None = None) -> None:
         self.names = sorted(set(names))
         self.environment = environment
-        joined = ", ".join(f"{{{{{n}}}}}" for n in self.names)
-        scope = f' in environment "{environment}"' if environment else ""
-        noun = "Variable" if len(self.names) == 1 else "Variables"
-        super().__init__(f"{noun} not defined{scope}: {joined}")
+        joined = ", ".join("{{" + n + "}}" for n in self.names)
+        many = len(self.names) != 1
+        if environment:
+            template = tr("Variables not defined in environment \"{env}\": {names}") if many else \
+                tr("Variable not defined in environment \"{env}\": {names}")
+        else:
+            template = tr("Variables not defined: {names}") if many else tr("Variable not defined: {names}")
+        super().__init__(template.format(env=environment, names=joined))
 
 
 class CircularVariableError(VariableError):
     def __init__(self, chain: list[str]) -> None:
         self.chain = chain
-        super().__init__("Circular variable reference: " + " → ".join(chain))
+        super().__init__(tr("Circular variable reference: {chain}", chain=" → ".join(chain)))
 
 
 @dataclass(frozen=True)
@@ -130,3 +136,34 @@ def build_variable_context(project: Project, secrets: Secrets, environment: str 
     values.update(env_secrets)
     secret_names = frozenset(secrets.globals) | frozenset(env_secrets)
     return VariableContext(values=values, secret_names=secret_names, environment=environment)
+
+
+# -- saving values as variables -------------------------------------------------------
+
+_NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_.\-]*")
+_SECRET_HINT = re.compile(r"token|secret|passw|pwd|api[_\-.]?key|auth|session|cookie|credential", re.IGNORECASE)
+
+
+def is_valid_variable_name(name: str) -> bool:
+    return bool(_NAME_PATTERN.fullmatch(name))
+
+
+def suggest_variable_name(path: Iterable[str | int]) -> str:
+    """``("data", "access_token")`` -> ``access_token``; array indexes are skipped."""
+    for key in reversed(list(path)):
+        if isinstance(key, str):
+            name = re.sub(r"[^A-Za-z0-9_.\-]+", "_", key).strip("_.-")
+            if name:
+                return name if is_valid_variable_name(name) else f"_{name}"
+    return "value"
+
+
+def looks_secret(name: str) -> bool:
+    return bool(_SECRET_HINT.search(name))
+
+
+def variable_text(value: object) -> str:
+    """How a JSON value is stored in a variable: strings as-is, everything else as JSON."""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
