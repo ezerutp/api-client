@@ -43,12 +43,32 @@ stored **inside your repository** so the whole team shares them through Git.
 
 ## Requirements
 
-- Python **3.12+**
 - Linux, Windows or macOS with a desktop session
+- Python **3.12+**, only to run from source (the release packages bring everything they need)
 
 Dependencies: `PySide6` (UI) and `httpx` (HTTP). Nothing else at runtime.
 
 ## Quick install (Linux)
+
+Download `api-client-linux-x86_64.tar.gz` from the [latest release](https://github.com/ezerutp/api-client/releases)
+and run its installer. Python is not needed:
+
+```bash
+tar -xzf api-client-linux-x86_64.tar.gz
+./api-client/install.sh
+```
+
+It copies the app to `~/.local/lib/api-client`, links the `api-client` command in `~/.local/bin`, and adds the icon
+and an **API Client** entry to your applications menu. To update, run the `install.sh` of a newer release.
+`./api-client/install.sh --uninstall` removes the app; your projects and settings are kept. It never uses sudo
+or writes outside your home folder.
+
+To build the archive yourself, run `packaging/linux/build.sh` (needs Python 3.12+ and `libxcb-cursor0`, or
+`xcb-util-cursor` on Fedora). It produces `dist_installer/api-client-linux-x86_64.tar.gz`.
+
+### From source
+
+To always run the latest code instead, install from a clone:
 
 ```bash
 git clone https://github.com/ezerutp/api-client.git
@@ -65,6 +85,28 @@ The script:
 
 Run `./install.sh` again at any time to update. `./install.sh --uninstall` removes the launcher; your
 projects and settings are kept. The script never uses sudo or writes outside your home folder.
+
+## Quick install (Windows)
+
+Download `api-client-setup.exe` from the [latest release](https://github.com/ezerutp/api-client/releases)
+and run it. The installer:
+
+1. Installs API Client to `%LocalAppData%\Programs\API Client` (no administrator rights needed).
+2. Adds that folder to your user `PATH`, so `api-client` works from any terminal.
+3. Creates a **Desktop** shortcut and a Start Menu entry.
+
+Uninstall from **Settings → Apps**, like any other Windows program; it also removes the `PATH` entry.
+Your projects and settings are kept (they live in your backend repos and `%APPDATA%\api-client`).
+
+To build the installer yourself from this repository:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1
+```
+
+This requires Python 3.12+ and [Inno Setup 6](https://jrsoftware.org/isdl.php) (`winget install
+JRSoftware.InnoSetup`) on `PATH`. It produces `dist_installer\api-client-setup.exe`. See
+`packaging/windows/` for the PyInstaller icon step and the Inno Setup script.
 
 ## Manual installation and running
 
@@ -330,6 +372,22 @@ pip install -r requirements-dev.txt
 pyinstaller api_client.spec
 # → dist/api-client/api-client   (Windows: dist\api-client\api-client.exe)
 ```
+
+## Releasing
+
+`.github/workflows/release.yml` builds the Windows installer and the Linux archive on GitHub Actions and
+publishes both in a GitHub release. To release a new version:
+
+1. Bump the version in `app/__init__.py` (`APP_VERSION`) and in `pyproject.toml`, and merge it into `main`.
+2. Tag that commit and push the tag:
+
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+
+The workflow fails if the tag does not match the app version. You can also run it by hand from the
+**Actions** tab to build both packages without publishing a release.
 
 ## Roadmap
 
