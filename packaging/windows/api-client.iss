@@ -9,11 +9,13 @@
 ;   pyinstaller api_client.spec
 ;   ISCC packaging\windows\api-client.iss
 
-; Keep in sync with APP_VERSION in app\__init__.py and the version in pyproject.toml
-; (the PyInstaller build has no embedded version resource to read it from).
+; build.ps1 passes /DMyAppVersion=<APP_VERSION from app\__init__.py>; the fallback below
+; is only used when ISCC is run by hand.
 #define MyAppName "API Client"
 #define MyAppId "api-client"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0-dev"
+#endif
 #define MyAppExeName "api-client.exe"
 #define MyAppGuiExeName "api-clientw.exe"
 #define MyAppPublisher "ezerutp"

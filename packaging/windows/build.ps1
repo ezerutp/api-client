@@ -49,7 +49,8 @@ if (-not (Test-Path "dist\api-client\api-client.exe")) {
 
 Write-Host "==> Compiling the installer with Inno Setup" -ForegroundColor Cyan
 New-Item -ItemType Directory -Force -Path dist_installer | Out-Null
-& $iscc "packaging\windows\api-client.iss"
+$version = & $venvPython -c "from app import APP_VERSION; print(APP_VERSION)"
+& $iscc "/DMyAppVersion=$version" "packaging\windows\api-client.iss"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "ISCC.exe failed with exit code $LASTEXITCODE"
 }
